@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+
+# Build
+.next
+out
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Docker
+.docker
