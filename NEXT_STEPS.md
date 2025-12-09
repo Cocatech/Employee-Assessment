@@ -68,46 +68,62 @@
 - [x] Query employees function
 
 ### Tasks Remaining:
-1. **Create SharePoint Lists**
+1. **Create SharePoint Lists** (See `docs/SHAREPOINT_SETUP.md` for complete guide)
    
-   **TRTH_Master_Employee** (Required fields):
-   - Title (Text) - Employee Code
-   - EmpName_Eng (Text)
+   **TRTH_Master_Employee** (Employee Master):
+   - Title (Text) - Employee Code *
+   - EmpName_Eng (Text) *
+   - EmpName_Thai (Text) - Thai name
    - Email (Text)
-   - Position (Text)
-   - Department (Text)
-   - AssessmentLevel (Choice)
-   - Approver1_ID (Text)
-   - Approver2_ID (Text) - *Can be empty/dash*
-   - GM_ID (Text)
-   - JoinDate (Date) - Format: YYYY-MM-DD
+   - PhoneNumber (Text) - Contact number
+   - Position (Text) *
+   - Department (Choice/Text) *
+   - AssessmentLevel (Choice) *
+   - EmployeeType (Choice) * - Permanent/Temporary
+   - Approver1_ID (Text) * - Manager
+   - Approver2_ID (Text) - Optional, can be empty
+   - GM_ID (Text) *
+   - JoinDate (Date) * - Format: YYYY-MM-DD
    - WarningCount (Number)
    
-   **TRTH_Assessments** (Required fields):
-   - Title (Text) - Assessment Title
-   - EmpCode (Text)
-   - Status (Choice) - DRAFT, SUBMITTED_MGR, SUBMITTED_APPR2, SUBMITTED_GM, COMPLETED, REJECTED
-   - Current_Assignee_Email (Text)
-   - PeriodStart (Date)
-   - PeriodEnd (Date)
-   - DueDate (Date)
+   **TRTH_Assessments** (Assessment Headers):
+   - Title (Text) - Assessment Title *
+   - EmpCode (Text) *
+   - AssessmentType (Choice) * - Annual/Mid-year/Probation/Special
+   - Status (Choice) * - DRAFT, SUBMITTED_MGR, SUBMITTED_APPR2, SUBMITTED_GM, COMPLETED, REJECTED
+   - Current_Assignee_Email (Text) - For Power Automate
+   - PeriodStart (Date) *
+   - PeriodEnd (Date) *
+   - DueDate (Date) *
+   - SubmittedAt (DateTime)
+   - ApprovedAt (DateTime)
    - RejectionReason (Multi-line Text)
-   - Score (Number)
+   - Score (Number) - Overall score
+   - FinalScore (Number) - Calculated final
    
-   **TRTH_Questions** (Optional for KPIs):
-   - Title (Text) - Topic
-   - Weight (Number)
-   - Category (Choice)
-   - Order (Number)
+   **TRTH_Questions** (KPI Master):
+   - Title (Text) - Topic/Question *
+   - Description (Multi-line Text) - Detailed criteria
+   - Weight (Number) * - Percentage weight
+   - Category (Choice) * - Question category
+   - Order (Number) * - Display order
+   - IsActive (Yes/No) * - Currently active
+   - ApplicableLevel (Choice/Text) - Which levels
    
-   **TRTH_Responses** (Optional for detailed tracking):
-   - AssessmentId (Text)
-   - QuestionId (Text)
-   - ScoreSelf (Number)
-   - ScoreMgr (Number)
-   - ScoreAppr2 (Number)
-   - ScoreGm (Number)
-   - Comments (Multi-line Text)
+   **TRTH_Responses** (Detailed Scores - Normalized Structure):
+   - Title (Text) - Auto: Response-{AssessmentId}-{QuestionId}
+   - AssessmentId (Text) * - Reference to assessment
+   - QuestionId (Text) * - Reference to question
+   - QuestionTitle (Text) - Cached for reference
+   - QuestionWeight (Number) - Cached for calculation
+   - ScoreSelf (Number) - Employee score (0-5)
+   - ScoreMgr (Number) - Manager score (0-5)
+   - ScoreAppr2 (Number) - Approver2 score (0-5)
+   - ScoreGm (Number) - GM score (0-5)
+   - CommentSelf (Multi-line Text) - Employee comment
+   - CommentMgr (Multi-line Text) - Manager comment
+   - CommentAppr2 (Multi-line Text) - Approver2 comment
+   - CommentGm (Multi-line Text) - GM comment
 
 2. **Get SharePoint Site ID**
    ```
@@ -118,6 +134,14 @@
    - Assessment notification flow
    - Completion notification flow
    - Rejection notification flow
+
+4. **Complete Setup Guide** (See docs/SHAREPOINT_SETUP.md)
+   - Detailed column configurations
+   - Sample data for testing
+   - Relationship mappings
+   - Migration guide from Excel/CSV
+   - Troubleshooting tips
+   - Performance optimization
 
 ---
 

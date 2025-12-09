@@ -24,10 +24,13 @@ export interface UserProfile extends User {
 export interface Employee {
   empCode: string; // Title field
   empName_Eng: string;
+  empName_Thai?: string; // Thai name
   email: string | null;
+  phoneNumber?: string; // Contact number
   position: string;
   department: string;
   assessmentLevel: string;
+  employeeType: 'Permanent' | 'Temporary'; // Staff type
   approver1_ID: string;
   approver2_ID: string | null;
   gm_ID: string;

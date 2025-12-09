@@ -115,10 +115,13 @@ export async function deleteListItem(listName: string, itemId: string): Promise<
 export interface EmployeeData {
   empCode: string;
   empName_Eng: string;
+  empName_Thai?: string;
   email: string | null;
+  phoneNumber?: string;
   position: string;
   department: string;
   assessmentLevel: string;
+  employeeType: 'Permanent' | 'Temporary';
   approver1_ID: string;
   approver2_ID: string | null;
   gm_ID: string;
@@ -152,10 +155,13 @@ export async function getEmployeeByCode(empCode: string): Promise<EmployeeData |
     return {
       empCode: fields.Title as string,
       empName_Eng: fields.EmpName_Eng as string,
+      empName_Thai: (fields.EmpName_Thai as string) || undefined,
       email: (fields.Email as string) || null,
+      phoneNumber: (fields.PhoneNumber as string) || undefined,
       position: fields.Position as string,
       department: fields.Department as string,
       assessmentLevel: fields.AssessmentLevel as string,
+      employeeType: (fields.EmployeeType as 'Permanent' | 'Temporary') || 'Permanent',
       approver1_ID: fields.Approver1_ID as string,
       approver2_ID: (fields.Approver2_ID as string) || null,
       gm_ID: fields.GM_ID as string,
@@ -198,10 +204,13 @@ export async function queryEmployees(filter: string): Promise<EmployeeData[]> {
     return response.value.map((item: any) => ({
       empCode: item.fields.Title,
       empName_Eng: item.fields.EmpName_Eng,
+      empName_Thai: item.fields.EmpName_Thai || undefined,
       email: item.fields.Email || null,
+      phoneNumber: item.fields.PhoneNumber || undefined,
       position: item.fields.Position,
       department: item.fields.Department,
       assessmentLevel: item.fields.AssessmentLevel,
+      employeeType: item.fields.EmployeeType || 'Permanent',
       approver1_ID: item.fields.Approver1_ID,
       approver2_ID: item.fields.Approver2_ID || null,
       gm_ID: item.fields.GM_ID,
