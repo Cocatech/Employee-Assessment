@@ -28,11 +28,13 @@ export interface Employee {
   email: string | null;
   phoneNumber?: string; // Contact number
   position: string;
-  department: string;
+  group: string; // Group code and name (e.g., "11002 : ADM, DRC")
+  team?: string; // Team assignment (multiple lines allowed)
   assessmentLevel: string;
   employeeType: 'Permanent' | 'Temporary'; // Staff type
-  approver1_ID: string;
+  approver1_ID: string | null;
   approver2_ID: string | null;
+  approver3_ID?: string | null; // Optional 3rd approver
   gm_ID: string;
   joinDate: string; // YYYY-MM-DD format
   warningCount: number;

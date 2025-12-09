@@ -2,7 +2,6 @@ import NextAuth from 'next-auth';
 import type { NextAuthConfig } from 'next-auth';
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id';
 import Credentials from 'next-auth/providers/credentials';
-import { getEmployeeByCode } from '@/lib/graph/sharepoint';
 
 /**
  * Validate temporary staff credentials
@@ -27,19 +26,21 @@ function validateTempStaffPassword(joinDate: string, password: string): boolean 
  */
 export const authConfig: NextAuthConfig = {
   providers: [
-    // Provider 1: Microsoft Entra ID for permanent staff
-    MicrosoftEntraID({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID!,
-      authorization: {
-        params: {
-          scope: 'openid profile email User.Read',
+    // Provider 1: Microsoft Entra ID for permanent staff (disabled for development)
+    ...(process.env.AZURE_AD_CLIENT_ID ? [
+      MicrosoftEntraID({
+        clientId: process.env.AZURE_AD_CLIENT_ID!,
+        clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+        tenantId: process.env.AZURE_AD_TENANT_ID!,
+        authorization: {
+          params: {
+            scope: 'openid profile email User.Read',
+          },
         },
-      },
-    }),
+      })
+    ] : []),
     
-    // Provider 2: Credentials for temporary staff
+    // Provider 2: Credentials for temporary staff (and development testing)
     Credentials({
       id: 'credentials',
       name: 'Employee Code',
@@ -53,7 +54,41 @@ export const authConfig: NextAuthConfig = {
         }
 
         try {
-          // Fetch employee data from SharePoint
+          // Development mode: use mock data
+          if (process.env.USE_MOCK_API === 'true') {
+            const { employeeAdapter } = await import('@/lib/api');
+            const employee = await employeeAdapter.getByEmpCode(credentials.username as string);
+            
+            if (!employee) {
+              console.error('Employee not found:', credentials.username);
+              return null;
+            }
+
+            // In dev mode, accept password as joinDate (DDMMYYYY) or simple password
+            const isValidPassword = 
+              validateTempStaffPassword(employee.joinDate, credentials.password as string) ||
+              credentials.password === 'password' || // Simple dev password
+              credentials.password === employee.empCode; // Or use empCode as password
+
+            if (!isValidPassword) {
+              console.error('Invalid password for employee:', credentials.username);
+              return null;
+            }
+
+            // Return user object
+            return {
+              id: employee.empCode,
+              name: employee.empName_Eng,
+              email: employee.email || `${employee.empCode}@trth.co.th`,
+              empCode: employee.empCode,
+              role: employee.employeeType === 'Temporary' ? 'TEMP_USER' : 'USER',
+              group: employee.group,
+              position: employee.position,
+            };
+          }
+
+          // Production mode: use SharePoint
+          const { getEmployeeByCode } = await import('@/lib/graph/sharepoint');
           const employee = await getEmployeeByCode(credentials.username as string);
           
           if (!employee) {
@@ -79,7 +114,7 @@ export const authConfig: NextAuthConfig = {
             email: employee.email || `${employee.empCode}@temp.trth.co.th`,
             empCode: employee.empCode,
             role: 'TEMP_USER',
-            department: employee.department,
+            group: employee.group,
             position: employee.position,
           };
         } catch (error) {

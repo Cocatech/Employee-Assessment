@@ -1,5 +1,6 @@
 'use server';
 
+import { employeeAdapter, isUsingMockAPI } from '@/lib/api';
 import { 
   getListItems, 
   createListItem, 
@@ -14,10 +15,16 @@ import type { Employee } from '@/types';
 const EMPLOYEES_LIST = 'TRTH_Master_Employee';
 
 /**
- * Get all employees from SharePoint
+ * Get all employees (ใช้ adapter สำหรับ mock/SharePoint)
  */
 export async function getEmployees(): Promise<Employee[]> {
   try {
+    // ใช้ adapter ที่จะสลับระหว่าง mock และ SharePoint อัตโนมัติ
+    if (isUsingMockAPI()) {
+      return await employeeAdapter.getAll();
+    }
+    
+    // SharePoint implementation (เดิม)
     const items = await getListItems(EMPLOYEES_LIST);
     return items.map((item) => ({
       empCode: item.fields.Title as string,
@@ -26,7 +33,8 @@ export async function getEmployees(): Promise<Employee[]> {
       email: (item.fields.Email as string) || null,
       phoneNumber: (item.fields.PhoneNumber as string) || undefined,
       position: item.fields.Position as string,
-      department: item.fields.Department as string,
+      group: item.fields.Group as string,
+      team: (item.fields.Team as string) || undefined,
       assessmentLevel: item.fields.AssessmentLevel as string,
       employeeType: (item.fields.EmployeeType as 'Permanent' | 'Temporary') || 'Permanent',
       approver1_ID: item.fields.Approver1_ID as string,
@@ -42,10 +50,19 @@ export async function getEmployees(): Promise<Employee[]> {
 }
 
 /**
- * Get single employee by code
+ * Get single employee by code (ใช้ adapter)
  */
 export async function getEmployee(empCode: string) {
   try {
+    if (isUsingMockAPI()) {
+      const employee = await employeeAdapter.getByEmpCode(empCode);
+      if (!employee) {
+        return { success: false, error: 'Employee not found' };
+      }
+      return { success: true, data: employee };
+    }
+    
+    // SharePoint implementation (เดิม)
     const employee = await getEmployeeByCode(empCode);
     if (!employee) {
       return { success: false, error: 'Employee not found' };
@@ -77,11 +94,11 @@ export async function searchEmployees(query: string) {
 }
 
 /**
- * Filter employees by department
+ * Filter employees by group
  */
-export async function getEmployeesByDepartment(department: string) {
+export async function getEmployeesByGroup(group: string) {
   try {
-    const filter = `fields/Department eq '${department}'`;
+    const filter = `fields/Group eq '${group}'`;
     return await queryEmployees(filter);
   } catch (error) {
     console.error('Error filtering employees:', error);
@@ -103,10 +120,18 @@ export async function getEmployeesByType(type: 'Permanent' | 'Temporary') {
 }
 
 /**
- * Create a new employee in SharePoint
+ * Create a new employee (ใช้ adapter)
  */
 export async function createEmployee(data: Omit<Employee, 'empCode'> & { empCode: string }) {
   try {
+    if (isUsingMockAPI()) {
+      await employeeAdapter.create(data as Employee);
+      revalidatePath('/admin/employees');
+      revalidatePath('/dashboard/employees');
+      return { success: true, id: data.empCode };
+    }
+
+    // SharePoint implementation
     const result = await createListItem(EMPLOYEES_LIST, {
       Title: data.empCode,
       EmpName_Eng: data.empName_Eng,
@@ -114,7 +139,8 @@ export async function createEmployee(data: Omit<Employee, 'empCode'> & { empCode
       Email: data.email || '',
       PhoneNumber: data.phoneNumber || '',
       Position: data.position,
-      Department: data.department,
+      Group: data.group,
+      Team: data.team || '',
       AssessmentLevel: data.assessmentLevel,
       EmployeeType: data.employeeType,
       Approver1_ID: data.approver1_ID,
@@ -125,6 +151,7 @@ export async function createEmployee(data: Omit<Employee, 'empCode'> & { empCode
     });
     
     revalidatePath('/admin/employees');
+    revalidatePath('/dashboard/employees');
     return { success: true, id: result.id };
   } catch (error) {
     console.error('Error creating employee:', error);
@@ -133,17 +160,23 @@ export async function createEmployee(data: Omit<Employee, 'empCode'> & { empCode
 }
 
 /**
- * Update an existing employee in SharePoint
+ * Update an existing employee (ใช้ adapter)
  */
 export async function updateEmployee(empCode: string, data: Partial<Employee>) {
   try {
-    // First, get the item ID by employee code
+    if (isUsingMockAPI()) {
+      await employeeAdapter.update(empCode, data);
+      revalidatePath('/admin/employees');
+      revalidatePath('/dashboard/employees');
+      return { success: true };
+    }
+
+    // SharePoint implementation
     const employees = await queryEmployees(`fields/Title eq '${empCode}'`);
     if (employees.length === 0) {
       return { success: false, error: 'Employee not found' };
     }
 
-    // Get the SharePoint item
     const items = await getListItems(EMPLOYEES_LIST);
     const item = items.find(i => i.fields.Title === empCode);
     if (!item) {
@@ -156,7 +189,8 @@ export async function updateEmployee(empCode: string, data: Partial<Employee>) {
       ...(data.email !== undefined && { Email: data.email }),
       ...(data.phoneNumber !== undefined && { PhoneNumber: data.phoneNumber }),
       ...(data.position && { Position: data.position }),
-      ...(data.department && { Department: data.department }),
+      ...(data.group && { Group: data.group }),
+      ...(data.team !== undefined && { Team: data.team }),
       ...(data.assessmentLevel && { AssessmentLevel: data.assessmentLevel }),
       ...(data.employeeType && { EmployeeType: data.employeeType }),
       ...(data.approver1_ID && { Approver1_ID: data.approver1_ID }),
@@ -167,6 +201,7 @@ export async function updateEmployee(empCode: string, data: Partial<Employee>) {
     });
     
     revalidatePath('/admin/employees');
+    revalidatePath('/dashboard/employees');
     return { success: true };
   } catch (error) {
     console.error('Error updating employee:', error);
@@ -175,11 +210,18 @@ export async function updateEmployee(empCode: string, data: Partial<Employee>) {
 }
 
 /**
- * Delete an employee from SharePoint
+ * Delete an employee (ใช้ adapter)
  */
 export async function deleteEmployee(empCode: string) {
   try {
-    // First, get the item ID by employee code
+    if (isUsingMockAPI()) {
+      await employeeAdapter.delete(empCode);
+      revalidatePath('/admin/employees');
+      revalidatePath('/dashboard/employees');
+      return { success: true };
+    }
+
+    // SharePoint implementation
     const items = await getListItems(EMPLOYEES_LIST);
     const item = items.find(i => i.fields.Title === empCode);
     
@@ -190,6 +232,7 @@ export async function deleteEmployee(empCode: string) {
     await deleteListItem(EMPLOYEES_LIST, item.id);
     
     revalidatePath('/admin/employees');
+    revalidatePath('/dashboard/employees');
     return { success: true };
   } catch (error) {
     console.error('Error deleting employee:', error);
@@ -198,15 +241,16 @@ export async function deleteEmployee(empCode: string) {
 }
 
 /**
- * Get unique departments for filter
+ * Get unique groups for filter
  */
-export async function getDepartments(): Promise<string[]> {
+export async function getGroups(): Promise<string[]> {
   try {
     const employees = await getEmployees();
-    const departments = [...new Set(employees.map(emp => emp.department))];
-    return departments.sort();
+    const groupSet = new Set(employees.map(emp => emp.group));
+    const groups = Array.from(groupSet);
+    return groups.sort();
   } catch (error) {
-    console.error('Error fetching departments:', error);
+    console.error('Error fetching groups:', error);
     return [];
   }
 }
@@ -222,8 +266,8 @@ export async function getEmployeeStats() {
       total: employees.length,
       permanent: employees.filter(e => e.employeeType === 'Permanent').length,
       temporary: employees.filter(e => e.employeeType === 'Temporary').length,
-      byDepartment: employees.reduce((acc, emp) => {
-        acc[emp.department] = (acc[emp.department] || 0) + 1;
+      byGroup: employees.reduce((acc, emp) => {
+        acc[emp.group] = (acc[emp.group] || 0) + 1;
         return acc;
       }, {} as Record<string, number>),
     };

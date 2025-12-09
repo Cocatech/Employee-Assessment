@@ -99,10 +99,20 @@ export default async function EmployeeDetailPage({
             <div className="flex items-start gap-3">
               <Building className="h-5 w-5 text-muted-foreground mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm text-muted-foreground">Department</p>
-                <p className="font-medium">{employee.department}</p>
+                <p className="text-sm text-muted-foreground">Group</p>
+                <p className="font-medium">{employee.group}</p>
               </div>
             </div>
+
+            {employee.team && (
+              <div className="flex items-start gap-3">
+                <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground">Team</p>
+                  <p className="font-medium whitespace-pre-line">{employee.team}</p>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-start gap-3">
               <Shield className="h-5 w-5 text-muted-foreground mt-0.5" />

@@ -1,0 +1,10 @@
+{
+  "/api/employees": "/employees",
+  "/api/employees/:empCode": "/employees?empCode=:empCode",
+  "/api/questions": "/questions",
+  "/api/questions/:level": "/questions?applicableLevel=:level",
+  "/api/assessments": "/assessments",
+  "/api/assessments/:id": "/assessments/:id",
+  "/api/responses": "/responses",
+  "/api/responses/assessment/:assessmentId": "/responses?assessmentId=:assessmentId"
+}

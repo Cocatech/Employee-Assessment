@@ -6,10 +6,10 @@ import { Search } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface EmployeeFiltersProps {
-  departments: string[];
+  groups: string[];
 }
 
-export function EmployeeFilters({ departments }: EmployeeFiltersProps) {
+export function EmployeeFilters({ groups }: EmployeeFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState(searchParams.get('search') || '');
@@ -26,13 +26,13 @@ export function EmployeeFilters({ departments }: EmployeeFiltersProps) {
     router.push(`?${params.toString()}`);
   }, [search, searchParams, router]);
 
-  const handleDepartmentFilter = (department: string) => {
+  const handleGroupFilter = (group: string) => {
     const params = new URLSearchParams(searchParams.toString());
     
-    if (params.get('department') === department) {
-      params.delete('department');
+    if (params.get('group') === group) {
+      params.delete('group');
     } else {
-      params.set('department', department);
+      params.set('group', group);
     }
     
     router.push(`?${params.toString()}`);
@@ -55,9 +55,9 @@ export function EmployeeFilters({ departments }: EmployeeFiltersProps) {
     router.push('/admin/employees');
   };
 
-  const activeDepartment = searchParams.get('department');
+  const activeGroup = searchParams.get('group');
   const activeType = searchParams.get('type');
-  const hasActiveFilters = search || activeDepartment || activeType;
+  const hasActiveFilters = search || activeGroup || activeType;
 
   return (
     <div className="space-y-4">
@@ -96,18 +96,18 @@ export function EmployeeFilters({ departments }: EmployeeFiltersProps) {
           Temporary
         </button>
 
-        {/* Department Filters */}
-        {departments.map((dept) => (
+        {/* Group Filters */}
+        {groups.map((grp) => (
           <button
-            key={dept}
-            onClick={() => handleDepartmentFilter(dept)}
+            key={grp}
+            onClick={() => handleGroupFilter(grp)}
             className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-              activeDepartment === dept
+              activeGroup === grp
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
             }`}
           >
-            {dept}
+            {grp}
           </button>
         ))}
 

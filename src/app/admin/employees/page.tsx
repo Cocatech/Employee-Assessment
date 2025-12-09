@@ -1,4 +1,4 @@
-import { getEmployees, getDepartments } from '@/actions/employees';
+import { getEmployees, getGroups } from '@/actions/employees';
 import { EmployeeTable } from '@/components/employees/EmployeeTable';
 import { EmployeeFilters } from '@/components/employees/EmployeeFilters';
 import { Button } from '@/components/ui/button';
@@ -16,13 +16,13 @@ export default async function EmployeesPage({
 }: {
   searchParams: { 
     search?: string; 
-    department?: string; 
+    group?: string; 
     type?: string;
   };
 }) {
-  const [employees, departments] = await Promise.all([
+  const [employees, groups] = await Promise.all([
     getEmployees(),
-    getDepartments(),
+    getGroups(),
   ]);
 
   // Filter employees based on search params
@@ -39,9 +39,9 @@ export default async function EmployeesPage({
     );
   }
 
-  if (searchParams.department) {
+  if (searchParams.group) {
     filteredEmployees = filteredEmployees.filter(
-      (emp) => emp.department === searchParams.department
+      (emp) => emp.group === searchParams.group
     );
   }
 
@@ -116,7 +116,7 @@ export default async function EmployeesPage({
 
       {/* Filters */}
       <Card className="p-6">
-        <EmployeeFilters departments={departments} />
+        <EmployeeFilters groups={groups} />
       </Card>
 
       {/* Employee Table */}

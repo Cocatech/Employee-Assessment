@@ -3,30 +3,40 @@
 import { getListItems, createListItem, updateListItem, deleteListItem } from '@/lib/graph/sharepoint';
 import { revalidatePath } from 'next/cache';
 import type { Assessment } from '@/types';
+import { assessmentAdapter, isUsingMockAPI } from '@/lib/api/data-adapter';
 
 const ASSESSMENTS_LIST = 'Assessments';
 
 /**
- * Get all assessments from SharePoint
+ * Get all assessments (ใช้ adapter)
  */
-export async function getAssessments(): Promise<Assessment[]> {
+export async function getAssessments(params?: { empCode?: string; status?: string }): Promise<Assessment[]> {
   try {
+    if (isUsingMockAPI()) {
+      return await assessmentAdapter.getAll(params);
+    }
+
+    // SharePoint implementation
     const items = await getListItems(ASSESSMENTS_LIST);
     return items.map((item) => ({
       id: item.id,
       title: item.fields.Title as string,
       description: item.fields.Description as string | undefined,
       type: item.fields.Type as Assessment['type'],
+      assessmentType: item.fields.AssessmentType as Assessment['assessmentType'],
       status: item.fields.Status as Assessment['status'],
-      employeeId: item.fields.EmployeeId as string,
+      employeeId: item.fields.EmpCode as string,
       assessorId: item.fields.AssessorId as string,
       periodStart: item.fields.PeriodStart as string,
       periodEnd: item.fields.PeriodEnd as string,
       dueDate: item.fields.DueDate as string,
       completedAt: item.fields.CompletedAt as string | undefined,
       score: item.fields.Score as number | undefined,
+      finalScore: item.fields.FinalScore as number | undefined,
       createdAt: item.createdDateTime,
       updatedAt: item.lastModifiedDateTime,
+      submittedAt: item.fields.SubmittedAt as string | undefined,
+      approvedAt: item.fields.ApprovedAt as string | undefined,
     }));
   } catch (error) {
     console.error('Error fetching assessments:', error);
@@ -35,16 +45,25 @@ export async function getAssessments(): Promise<Assessment[]> {
 }
 
 /**
- * Create a new assessment in SharePoint
+ * Create a new assessment (ใช้ adapter)
  */
 export async function createAssessment(data: Omit<Assessment, 'id' | 'createdAt' | 'updatedAt'>) {
   try {
+    if (isUsingMockAPI()) {
+      const result = await assessmentAdapter.create(data);
+      revalidatePath('/dashboard/assessments');
+      revalidatePath('/admin/assessments');
+      return { success: true, id: result.id };
+    }
+
+    // SharePoint implementation
     const result = await createListItem(ASSESSMENTS_LIST, {
       Title: data.title,
       Description: data.description,
       Type: data.type,
+      AssessmentType: data.assessmentType,
       Status: data.status,
-      EmployeeId: data.employeeId,
+      EmpCode: data.employeeId,
       AssessorId: data.assessorId,
       PeriodStart: data.periodStart,
       PeriodEnd: data.periodEnd,
@@ -52,6 +71,7 @@ export async function createAssessment(data: Omit<Assessment, 'id' | 'createdAt'
     });
     
     revalidatePath('/dashboard/assessments');
+    revalidatePath('/admin/assessments');
     return { success: true, id: result.id };
   } catch (error) {
     console.error('Error creating assessment:', error);
@@ -60,20 +80,38 @@ export async function createAssessment(data: Omit<Assessment, 'id' | 'createdAt'
 }
 
 /**
- * Update an existing assessment in SharePoint
+ * Update an existing assessment (ใช้ adapter)
  */
 export async function updateAssessment(id: string, data: Partial<Assessment>) {
   try {
-    await updateListItem(ASSESSMENTS_LIST, id, {
+    if (isUsingMockAPI()) {
+      const updated = await assessmentAdapter.update(id, data);
+      revalidatePath('/dashboard/assessments');
+      revalidatePath('/admin/assessments');
+      revalidatePath(`/dashboard/assessments/${id}`);
+      return updated;
+    }
+
+    // SharePoint implementation
+    const result = await updateListItem(ASSESSMENTS_LIST, id, {
       ...(data.title && { Title: data.title }),
       ...(data.description !== undefined && { Description: data.description }),
       ...(data.status && { Status: data.status }),
       ...(data.score !== undefined && { Score: data.score }),
+      ...(data.finalScore !== undefined && { FinalScore: data.finalScore }),
       ...(data.completedAt && { CompletedAt: data.completedAt }),
+      ...(data.submittedAt && { SubmittedAt: data.submittedAt }),
+      ...(data.approvedAt && { ApprovedAt: data.approvedAt }),
     });
     
     revalidatePath('/dashboard/assessments');
-    return { success: true };
+    revalidatePath('/admin/assessments');
+    revalidatePath(`/dashboard/assessments/${id}`);
+    
+    // Fetch and return updated data
+    const assessments = await getAssessments();
+    const updated = assessments.find(a => a.id === id);
+    return updated || { success: false, error: 'Assessment not found after update' };
   } catch (error) {
     console.error('Error updating assessment:', error);
     return { success: false, error: 'Failed to update assessment' };
@@ -81,13 +119,27 @@ export async function updateAssessment(id: string, data: Partial<Assessment>) {
 }
 
 /**
- * Delete an assessment from SharePoint
+ * Delete an assessment (ใช้ adapter)
  */
 export async function deleteAssessment(id: string) {
   try {
+    if (isUsingMockAPI()) {
+      // Mock API: id is string, need to parse to number if numeric
+      const assessments = await assessmentAdapter.getAll();
+      const assessment = assessments.find(a => a.id === id);
+      if (assessment) {
+        await assessmentAdapter.delete?.(id);
+      }
+      revalidatePath('/dashboard/assessments');
+      revalidatePath('/admin/assessments');
+      return { success: true };
+    }
+
+    // SharePoint implementation
     await deleteListItem(ASSESSMENTS_LIST, id);
     
     revalidatePath('/dashboard/assessments');
+    revalidatePath('/admin/assessments');
     return { success: true };
   } catch (error) {
     console.error('Error deleting assessment:', error);

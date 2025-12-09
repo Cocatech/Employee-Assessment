@@ -61,7 +61,8 @@ We use a normalized database design with separate lists for:
 | **Email** | Single line of text | ⚠️ Optional | Format: email | Employee email address |
 | **PhoneNumber** | Single line of text | ⚠️ Optional | Max 20 chars | Contact phone number |
 | **Position** | Single line of text | ✅ Yes | Max 100 chars | Job position/title |
-| **Department** | Choice or Text | ✅ Yes | See choices below | Department name |
+| **Group** | Single line of text | ✅ Yes | Max 200 chars | Group code and name (e.g., "11002 : ADM, DRC") |
+| **Team** | Multiple lines of text | ⚠️ Optional | Plain text | Team assignment (can be multiline) |
 | **AssessmentLevel** | Choice | ✅ Yes | See choices below | Assessment level/grade |
 | **EmployeeType** | Choice | ✅ Yes | Permanent, Temporary | Type of employment |
 | **Approver1_ID** | Single line of text | ✅ Yes | Max 50 chars | Manager/First approver employee code |
@@ -70,31 +71,30 @@ We use a normalized database design with separate lists for:
 | **JoinDate** | Date and Time | ✅ Yes | Date only | Employee join date (YYYY-MM-DD) |
 | **WarningCount** | Number | ⚠️ Optional | Default: 0 | Number of warnings/issues |
 
-#### Department Choices (Customize as needed):
-```
-IT
-HR
-Finance
-Operations
-Sales
-Marketing
-Production
-Quality Assurance
-Logistics
-Administration
-```
+#### Group Field Format:
+Use the format: `{code} : {name1}, {name2}` 
+Example: `11002 : ADM, DRC`
+
+This allows for flexible grouping with multiple department/division names.
+
+#### Team Field:
+Multiple lines of text for team assignments. Can contain multiple entries separated by line breaks.
 
 #### AssessmentLevel Choices:
 ```
-Level 1 - Entry
-Level 2 - Junior
-Level 3 - Senior
-Level 4 - Lead
-Level 5 - Manager
-Level 6 - Senior Manager
-Level 7 - Director
-Level 8 - Executive
+General
+Interpreter
+Operate
+Supervise
+Management
 ```
+
+**หมายเหตุ:**
+- **General**: คำถามทั่วไป (ใช้กับทุกระดับ)
+- **Interpreter**: ล่าม/นักแปล
+- **Operate**: พนักงานปฏิบัติการ (Level 1-3)
+- **Supervise**: หัวหน้างาน/ซุปเปอร์ไวเซอร์ (Level 4-5)
+- **Management**: ผู้จัดการ/ผู้บริหาร (Level 6+)
 
 #### EmployeeType Choices:
 ```
@@ -107,22 +107,42 @@ Temporary
 2. Enable "Allow management of content types": **Yes**
 3. Set "Item-level permissions": **Read all, Create and edit own**
 
-### Step 4: Sample Data
+### Step 4: Sample Data (จากข้อมูลจริง)
 
 ```
-Title: EMP001
-EmpName_Eng: John Smith
-EmpName_Thai: จอห์น สมิธ
-Email: john.smith@trth.co.th
+Title: 11002
+EmpName_Eng: Ayako Kaihatsu
+EmpName_Thai: อายาโคะ ไคฮาสึ
+Email: ayako.k@trth.co.th
 PhoneNumber: 081-234-5678
-Position: Software Engineer
-Department: IT
-AssessmentLevel: Level 3 - Senior
+Position: General Manager
+Group: ADM,DRC
+Team: Environment (A), Environment (G), Safety/Energy (A), Safety/Energy (G), DCC
+AssessmentLevel: Management
 EmployeeType: Permanent
-Approver1_ID: MGR001
-Approver2_ID: MGR002
-GM_ID: GM001
-JoinDate: 2020-01-15
+Approver1_ID: 11007
+Approver2_ID: -
+GM_ID: 11002
+JoinDate: 2010-10-01
+WarningCount: 0
+```
+
+**ตัวอย่างที่ 2:**
+```
+Title: 11007
+EmpName_Eng: Wannapa Pawana
+EmpName_Thai: วรรณภา ภาวนา
+Email: wannapa.p@trth.co.th
+PhoneNumber: 082-345-6789
+Position: Manager
+Group: ACC,BOI
+Team: Financial, BOI, Import/Export, ACC, Costing
+AssessmentLevel: Supervise
+EmployeeType: Permanent
+Approver1_ID: 11002
+Approver2_ID: -
+GM_ID: 11002
+JoinDate: 2015-03-15
 WarningCount: 0
 ```
 
@@ -228,49 +248,72 @@ FinalScore: (empty)
 
 #### Category Choices:
 ```
-Job Knowledge
-Quality of Work
-Productivity
-Communication
-Teamwork
+Performance
+Quality
+Behavior
+Competency
 Leadership
-Problem Solving
-Initiative
-Attendance
-Professional Development
+Team Management
+Strategic
 ```
 
-#### ApplicableLevel (Allow multiple selections):
+**หมายเหตุ:**
+- **Performance**: ผลการปฏิบัติงาน
+- **Quality**: คุณภาพงาน
+- **Behavior**: พฤติกรรม
+- **Competency**: สมรรถนะ
+- **Leadership**: ความเป็นผู้นำ (Supervise, Management)
+- **Team Management**: การบริหารทีม (Management)
+- **Strategic**: เชิงกลยุทธ์ (Management)
+
+#### ApplicableLevel Choices:
 ```
-Level 1 - Entry
-Level 2 - Junior
-Level 3 - Senior
-Level 4 - Lead
-Level 5 - Manager
-Level 6 - Senior Manager
-Level 7 - Director
-Level 8 - Executive
-All Levels
+General
+Interpreter
+Operate
+Supervise
+Management
+All
 ```
+
+**หมายเหตุ:**
+- เลือกได้เพียง 1 ระดับ หรือ "All" สำหรับคำถามที่ใช้ได้กับทุกระดับ
+- ควรใช้ Choice field (single selection) แทน Multiple selection
+- หากต้องการใช้กับหลายระดับ ให้สร้างคำถามแยกกัน
 
 ### Step 3: Sample Data
 
+**Operate Level Example:**
 ```
-Title: Technical Skills
-Description: Demonstrates proficiency in required technical skills and tools
-Category: Job Knowledge
+Title: Quality of Work
+Description: ความถูกต้องและความละเอียดของงาน (Accuracy and thoroughness of work)
+Category: Quality
 Weight: 15
 Order: 1
 IsActive: Yes
-ApplicableLevel: All Levels
+ApplicableLevel: Operate
+```
 
-Title: Code Quality
-Description: Writes clean, maintainable, and well-documented code
-Category: Quality of Work
-Weight: 15
-Order: 2
+**Management Level Example:**
+```
+Title: Strategic Planning
+Description: การวางแผนเชิงกลยุทธ์และการมองการณ์ไกล (Strategic planning and vision)
+Category: Strategic
+Weight: 25
+Order: 1
 IsActive: Yes
-ApplicableLevel: Level 1 - Entry; Level 2 - Junior; Level 3 - Senior
+ApplicableLevel: Management
+```
+
+**General (All Levels) Example:**
+```
+Title: Attendance
+Description: การเข้างานสม่ำเสมอและตรงต่อเวลา (Regular attendance and punctuality)
+Category: Behavior
+Weight: 10
+Order: 1
+IsActive: Yes
+ApplicableLevel: General
 ```
 
 ---
@@ -311,15 +354,15 @@ For performance, index these columns:
 ### Step 4: Sample Data
 
 ```
-Title: Response-001-Q1
-AssessmentId: 001
-QuestionId: Q1
-QuestionTitle: Technical Skills
+Title: Response-ASS001-OP001
+AssessmentId: ASS-2025-11002-001
+QuestionId: OP-001
+QuestionTitle: Quality of Work
 QuestionWeight: 15
 ScoreSelf: 4.0
 ScoreMgr: 4.5
-ScoreAppr2: (empty)
-ScoreGm: (empty)
+ScoreAppr2: 4.0
+ScoreGm: 5.0
 CommentSelf: I have improved my technical skills significantly
 CommentMgr: Shows strong technical abilities and continuous learning
 ```
@@ -364,7 +407,24 @@ Response includes `id` field - save this as `SHAREPOINT_SITE_ID`
 ```http
 GET https://graph.microsoft.com/v1.0/sites/{site-id}/lists/TRTH_Master_Employee/items
   ?$expand=fields
-  &$filter=fields/Title eq 'EMP001'
+  &$filter=fields/Title eq '11002'
+```
+
+**Example Response (Simplified):**
+```json
+{
+  "fields": {
+    "Title": "11002",
+    "EmpName_Eng": "Ayako Kaihatsu",
+    "EmpName_Thai": "อายาโคะ ไคฮาสึ",
+    "Email": "ayako.k@trth.co.th",
+    "Position": "General Manager",
+    "Group": "ADM,DRC",
+    "Team": "Environment (A), Safety/Energy (G), DCC",
+    "AssessmentLevel": "Management",
+    "EmployeeType": "Permanent"
+  }
+}
 ```
 
 ### Get All Assessments for Employee
@@ -418,7 +478,7 @@ GET https://graph.microsoft.com/v1.0/sites/{site-id}/lists/TRTH_Responses/items
 ## 🧪 Testing Checklist
 
 ### Phase 1: Data Entry
-- [ ] Create 3+ test employees (different types, levels, departments)
+- [ ] Create 3+ test employees (different types, levels, groups)
 - [ ] Verify all required fields are captured
 - [ ] Test validation rules
 - [ ] Test lookup relationships
@@ -449,16 +509,21 @@ GET https://graph.microsoft.com/v1.0/sites/{site-id}/lists/TRTH_Responses/items
 
 #### Step 1: Prepare Data Files
 
-**Employees.csv:**
+**Employees.csv:** (ตามข้อมูลจริงจาก Excel)
 ```csv
-Title,EmpName_Eng,EmpName_Thai,Email,PhoneNumber,Position,Department,AssessmentLevel,EmployeeType,Approver1_ID,Approver2_ID,GM_ID,JoinDate,WarningCount
-EMP001,John Smith,จอห์น สมิธ,john@trth.co.th,081-234-5678,Engineer,IT,Level 3,Permanent,MGR001,MGR002,GM001,2020-01-15,0
+Title,EmpName_Eng,EmpName_Thai,Email,PhoneNumber,Position,Group,Team,AssessmentLevel,EmployeeType,Approver1_ID,Approver2_ID,GM_ID,JoinDate,WarningCount
+11002,Ayako Kaihatsu,อายาโคะ ไคฮาสึ,ayako.k@trth.co.th,081-234-5678,General Manager,"ADM,DRC","Environment (A), Safety/Energy (G), DCC",Management,Permanent,11007,-,11002,2010-10-01,0
+11007,Wannapa Pawana,วรรณภา ภาวนา,wannapa.p@trth.co.th,082-345-6789,Manager,"ACC,BOI","Financial, BOI, Import/Export, ACC, Costing",Supervise,Permanent,11002,-,11002,2015-03-15,0
 ```
 
-**Questions.csv:**
+**Questions.csv:** (ตัวอย่างตาม 5 ระดับ)
 ```csv
 Title,Description,Category,Weight,Order,IsActive,ApplicableLevel
-Technical Skills,Proficiency in technical skills,Job Knowledge,15,1,Yes,All Levels
+Quality of Work,ความถูกต้องและความละเอียดของงาน,Quality,15,1,Yes,Operate
+Team Leadership,ความสามารถในการนำทีม,Leadership,20,1,Yes,Supervise
+Strategic Planning,การวางแผนเชิงกลยุทธ์,Strategic,25,1,Yes,Management
+Translation Accuracy,ความแม่นยำในการแปล,Quality,25,1,Yes,Interpreter
+Attendance,การเข้างานสม่ำเสมอ,Behavior,10,1,Yes,General
 ```
 
 #### Step 2: Import Using SharePoint UI

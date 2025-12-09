@@ -1,0 +1,300 @@
+/**
+ * Data Adapter - REGENERATED FILE
+ * สลับระหว่าง Mock API และ SharePoint ตาม environment variable
+ */
+
+import { Employee } from '@/types/user';
+import { AssessmentQuestion, Assessment, AssessmentResponse } from '@/types/assessment';
+import {
+  mockEmployeeClient,
+  mockAssessmentClient,
+  mockQuestionClient,
+  mockResponseClient,
+} from './mock-client';
+
+const USE_MOCK_API = process.env.USE_MOCK_API === 'true';
+
+/**
+ * แปลงข้อมูลจาก Mock API format เป็น Employee type
+ */
+function transformMockEmployee(data: any): Employee {
+  return {
+    id: data.id?.toString() || '',
+    empCode: data.empCode,
+    title: data.title,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    firstNameTH: data.firstNameTH,
+    lastNameTH: data.lastNameTH,
+    email: data.email,
+    phone: data.phone,
+    position: data.position,
+    group: data.group,
+    team: data.team,
+    assessmentLevel: data.assessmentLevel,
+    employeeType: data.employeeType,
+    joinDate: data.joinDate,
+    status: data.status,
+  };
+}
+
+/**
+ * Employee Data Adapter
+ */
+export const employeeAdapter = {
+  /**
+   * ดึงข้อมูลพนักงานทั้งหมด
+   */
+  async getAll(params?: { group?: string; employeeType?: string; search?: string }): Promise<Employee[]> {
+    if (USE_MOCK_API) {
+      const data = await mockEmployeeClient.getAll(params);
+      return data.map(transformMockEmployee);
+    } else {
+      // TODO: Implement SharePoint employees fetching
+      const { getEmployees } = await import('@/actions/employees');
+      return await getEmployees();
+    }
+  },
+
+  /**
+   * ดึงข้อมูลพนักงานตาม empCode
+   */
+  async getByEmpCode(empCode: string): Promise<Employee | null> {
+    if (USE_MOCK_API) {
+      const data = await mockEmployeeClient.getByEmpCode(empCode);
+      return data ? transformMockEmployee(data) : null;
+    } else {
+      // TODO: Implement SharePoint employee fetching by code
+      const { getEmployeeByCode } = await import('@/lib/graph/sharepoint');
+      const result = await getEmployeeByCode(empCode);
+      return result || null;
+    }
+  },
+
+  /**
+   * สร้างพนักงานใหม่
+   */
+  async create(employee: Partial<Employee>): Promise<Employee> {
+    if (USE_MOCK_API) {
+      const data = await mockEmployeeClient.create({
+        ...employee,
+        id: Date.now(), // Generate temporary ID
+        warningCount: employee.warningCount || 0,
+      });
+      return transformMockEmployee(data);
+    } else {
+      // TODO: Implement SharePoint employee creation
+      throw new Error('SharePoint employee creation not implemented yet');
+    }
+  },
+  /**
+   * อัปเดตข้อมูลพนักงาน
+   */
+  async update(empCode: string, employee: Partial<Employee>): Promise<Employee> {
+    if (USE_MOCK_API) {
+      // ค้นหา employee ด้วย empCode เพื่อเอา ID
+      const existing = await mockEmployeeClient.getByEmpCode(empCode);
+      if (!existing) {
+        throw new Error(`Employee with empCode ${empCode} not found`);
+      }
+      const data = await mockEmployeeClient.update(existing.id, {
+        ...existing,
+        ...employee,
+      });
+      return transformMockEmployee(data);
+    } else {
+      // TODO: Implement SharePoint employee update
+      throw new Error('SharePoint employee update not implemented yet');
+    }
+  },}
+  },
+  /**
+   * ลบพนักงาน
+   */
+  async delete(empCode: string): Promise<void> {
+    if (USE_MOCK_API) {
+      const existing = await mockEmployeeClient.getByEmpCode(empCode);
+      if (!existing) {
+        throw new Error(`Employee with empCode ${empCode} not found`);
+      }
+      await mockEmployeeClient.delete(existing.id);
+    } else {
+      // TODO: Implement SharePoint employee deletion
+      throw new Error('SharePoint employee deletion not implemented yet');
+    }
+  },}
+  },
+};
+
+/**
+ * Question Data Adapter
+ */
+export const questionAdapter = {
+  /**
+   * ดึงข้อมูล questions ทั้งหมด
+   */
+  async getAll(params?: { level?: string; category?: string }): Promise<AssessmentQuestion[]> {
+    if (USE_MOCK_API) {
+      return await mockQuestionClient.getAll(params);
+    } else {
+      // TODO: Implement SharePoint questions fetching
+      throw new Error('SharePoint questions not implemented yet');
+    }
+  /**
+   * สร้าง question ใหม่
+   */
+  async create(question: Partial<AssessmentQuestion>): Promise<AssessmentQuestion> {
+    if (USE_MOCK_API) {
+      const result = await mockQuestionClient.create({
+        ...question,
+        id: Date.now(),
+      });
+      return result as AssessmentQuestion;
+    } else {
+      // TODO: Implement SharePoint question creation
+      throw new Error('SharePoint questions not implemented yet');
+    }
+  },  throw new Error('SharePoint questions not implemented yet');
+    }
+  /**
+   * อัปเดต question
+   */
+  async update(id: number, question: Partial<AssessmentQuestion>): Promise<AssessmentQuestion> {
+    if (USE_MOCK_API) {
+      const result = await mockQuestionClient.update(id, question);
+      return result as AssessmentQuestion;
+    } else {
+      // TODO: Implement SharePoint question update
+      throw new Error('SharePoint questions not implemented yet');
+    }
+  },  throw new Error('SharePoint questions not implemented yet');
+    }
+  },
+
+  /**
+   * ลบ question
+   */
+  async delete(id: number): Promise<void> {
+    if (USE_MOCK_API) {
+      await mockQuestionClient.delete(id);
+    } else {
+      // TODO: Implement SharePoint question deletion
+      throw new Error('SharePoint questions not implemented yet');
+    }
+  },
+};
+
+/**
+ * Assessment Data Adapter
+ */
+export const assessmentAdapter = {
+  /**
+   * ดึงข้อมูล assessments
+   */
+  async getAll(params?: { empCode?: string; year?: number; status?: string }): Promise<Assessment[]> {
+    if (USE_MOCK_API) {
+      return await mockAssessmentClient.getAll(params);
+    } else {
+      // TODO: Implement SharePoint assessments fetching
+      throw new Error('SharePoint assessments not implemented yet');
+    }
+  },
+
+  /**
+   * ดึงข้อมูล assessment ตาม ID
+   */
+  async getById(id: string): Promise<Assessment | null> {
+    if (USE_MOCK_API) {
+      return await mockAssessmentClient.getById(id);
+    } else {
+      // TODO: Implement SharePoint assessment fetching
+      throw new Error('SharePoint assessments not implemented yet');
+  /**
+   * สร้าง assessment ใหม่
+   */
+  async create(assessment: Partial<Assessment>): Promise<Assessment> {
+    if (USE_MOCK_API) {
+      const result = await mockAssessmentClient.create({
+        ...assessment,
+        id: Date.now(),
+      });
+      return result as Assessment;
+    } else {
+      // TODO: Implement SharePoint assessment creation
+      throw new Error('SharePoint assessments not implemented yet');
+    }
+  },  // TODO: Implement SharePoint assessment creation
+  /**
+   * อัปเดต assessment
+   */
+  async update(id: string, assessment: Partial<Assessment>): Promise<Assessment> {
+    if (USE_MOCK_API) {
+      const assessments = await mockAssessmentClient.getAll({ empCode: id });
+      if (!assessments.length) {
+        throw new Error(`Assessment ${id} not found`);
+      }
+      const result = await mockAssessmentClient.update(assessments[0].id, assessment);
+      return result as Assessment;
+    } else {
+      // TODO: Implement SharePoint assessment update
+      throw new Error('SharePoint assessments not implemented yet');
+    }
+  },} else {
+      // TODO: Implement SharePoint assessment update
+      throw new Error('SharePoint assessments not implemented yet');
+    }
+  },
+};
+
+/**
+ * Response Data Adapter
+ */
+export const responseAdapter = {
+  /**
+   * ดึงข้อมูล responses
+   */
+  async getAll(params?: { assessmentId?: string }): Promise<AssessmentResponse[]> {
+    if (USE_MOCK_API) {
+      return await mockResponseClient.getAll(params);
+    } else {
+      // TODO: Implement SharePoint responses fetching
+  /**
+   * สร้าง response ใหม่
+   */
+  async create(response: Partial<AssessmentResponse>): Promise<AssessmentResponse> {
+    if (USE_MOCK_API) {
+      const result = await mockResponseClient.create({
+        ...response,
+        id: Date.now(),
+      });
+      return result as AssessmentResponse;
+    } else {
+      // TODO: Implement SharePoint response creation
+      throw new Error('SharePoint responses not implemented yet');
+    }
+  },} else {
+      // TODO: Implement SharePoint response creation
+  /**
+   * อัปเดต response
+   */
+  async update(id: number, response: Partial<AssessmentResponse>): Promise<AssessmentResponse> {
+    if (USE_MOCK_API) {
+      const result = await mockResponseClient.update(id, response);
+      return result as AssessmentResponse;
+    } else {
+      // TODO: Implement SharePoint response update
+      throw new Error('SharePoint responses not implemented yet');
+    }
+  },} else {
+      // TODO: Implement SharePoint response update
+      throw new Error('SharePoint responses not implemented yet');
+    }
+  },
+};
+
+/**
+ * ตรวจสอบว่าใช้ Mock API หรือไม่
+ */
+export function isUsingMockAPI(): boolean {
+  return USE_MOCK_API;
+}

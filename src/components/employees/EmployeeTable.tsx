@@ -60,7 +60,7 @@ export function EmployeeTable({ employees }: EmployeeTableProps) {
               <th className="text-left py-3 px-4 font-medium">Code</th>
               <th className="text-left py-3 px-4 font-medium">Name</th>
               <th className="text-left py-3 px-4 font-medium">Position</th>
-              <th className="text-left py-3 px-4 font-medium">Department</th>
+              <th className="text-left py-3 px-4 font-medium">Group</th>
               <th className="text-left py-3 px-4 font-medium">Type</th>
               <th className="text-left py-3 px-4 font-medium">Email</th>
               <th className="text-right py-3 px-4 font-medium">Actions</th>
@@ -83,7 +83,7 @@ export function EmployeeTable({ employees }: EmployeeTableProps) {
                   </div>
                 </td>
                 <td className="py-3 px-4 text-sm">{employee.position}</td>
-                <td className="py-3 px-4 text-sm">{employee.department}</td>
+                <td className="py-3 px-4 text-sm">{employee.group}</td>
                 <td className="py-3 px-4">
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -172,8 +172,14 @@ export function EmployeeTable({ employees }: EmployeeTableProps) {
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Building className="h-4 w-4" />
-                <span>{employee.department}</span>
+                <span>{employee.group}</span>
               </div>
+              {employee.team && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <User className="h-4 w-4" />
+                  <span>{employee.team}</span>
+                </div>
+              )}
               {employee.email && (
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-muted-foreground" />

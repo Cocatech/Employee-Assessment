@@ -42,7 +42,8 @@ Last Updated: December 9, 2025
 | **Email** | ✅ Text | ✅ Text | ✅ Text | ✅ Matches |
 | **PhoneNumber** | ❌ Missing | ⚠️ Recommended | ✅ Added (Optional) | ✅ Enhanced |
 | **Position** | ✅ Text | ✅ Text | ✅ Text | ✅ Matches |
-| **Department** | ✅ Text | ✅ Choice/Text | ✅ Choice/Text | ✅ Matches |
+| **Group** | ✅ Text | ✅ Choice/Text | ✅ Text (format: code : names) | ✅ Adjusted |
+| **Team** | ❌ Missing | ⚠️ Recommended | ✅ Added (Optional, Multiline) | ✅ Enhanced |
 | **AssessmentLevel** | ✅ Choice | ✅ Choice | ✅ Choice | ✅ Matches |
 | **EmployeeType** | ❌ Missing | ⚠️ Recommended | ✅ Added (Required) | ✅ Enhanced |
 | **Approver1_ID** | ✅ Text | ✅ Text | ✅ Text | ✅ Matches |
@@ -66,7 +67,8 @@ export interface Employee {
   email: string | null;
   phoneNumber?: string;           // NEW
   position: string;
-  department: string;
+  group: string;                  // CHANGED from department
+  team?: string;                  // NEW
   assessmentLevel: string;
   employeeType: 'Permanent' | 'Temporary';  // NEW
   approver1_ID: string;

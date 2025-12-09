@@ -119,7 +119,8 @@ export interface EmployeeData {
   email: string | null;
   phoneNumber?: string;
   position: string;
-  department: string;
+  group: string;
+  team?: string;
   assessmentLevel: string;
   employeeType: 'Permanent' | 'Temporary';
   approver1_ID: string;
@@ -159,7 +160,8 @@ export async function getEmployeeByCode(empCode: string): Promise<EmployeeData |
       email: (fields.Email as string) || null,
       phoneNumber: (fields.PhoneNumber as string) || undefined,
       position: fields.Position as string,
-      department: fields.Department as string,
+      group: fields.Group as string,
+      team: (fields.Team as string) || undefined,
       assessmentLevel: fields.AssessmentLevel as string,
       employeeType: (fields.EmployeeType as 'Permanent' | 'Temporary') || 'Permanent',
       approver1_ID: fields.Approver1_ID as string,
@@ -208,7 +210,8 @@ export async function queryEmployees(filter: string): Promise<EmployeeData[]> {
       email: item.fields.Email || null,
       phoneNumber: item.fields.PhoneNumber || undefined,
       position: item.fields.Position,
-      department: item.fields.Department,
+      group: item.fields.Group,
+      team: item.fields.Team || undefined,
       assessmentLevel: item.fields.AssessmentLevel,
       employeeType: item.fields.EmployeeType || 'Permanent',
       approver1_ID: item.fields.Approver1_ID,
