@@ -4,6 +4,7 @@ import { ClipboardCheck, Plus, FileText, Clock, CheckCircle, XCircle } from 'luc
 import Link from 'next/link';
 import { getAssessments } from '@/actions/assessments';
 import { getEmployees } from '@/actions/employees';
+import { auth } from '@/lib/auth';
 
 export const metadata = {
   title: 'Assessments | TRTH Assessment',
@@ -11,13 +12,33 @@ export const metadata = {
 };
 
 export default async function DashboardAssessmentsPage() {
-  // ดึงข้อมูลจาก mock API/SharePoint
+  // Get current user from session
+  const session = await auth();
+  const currentUserSession = session?.user as any;
+  const role = currentUserSession?.role;
+  const userType = currentUserSession?.userType;
+  const currentUserId = currentUserSession?.empCode || '';
+  
+  // ดึงข้อมูลจาก database
   const assessments = await getAssessments();
   const employees = await getEmployees();
   
-  // TODO: Get current user from session
-  const currentUserId = '11002'; // Mock current user
   const currentUser = employees.find(e => e.empCode === currentUserId);
+  
+  // Check if user has permission to create assessments
+  // Only allow: System Admin or Employee Admin
+  const isAdmin = userType === 'SYSTEM_ADMIN' || role === 'ADMIN';
+  
+  // Only Admin can create assessments
+  const canCreateAssessment = isAdmin;
+  
+  // Debug logging (remove in production)
+  console.log('Permission Check:', {
+    currentUserId,
+    empCode: currentUser?.empCode,
+    isAdmin,
+    canCreateAssessment
+  });
   
   // Filter assessments ที่ต้อง approve
   const filteredAssessments = assessments.filter(assessment => {
@@ -113,12 +134,14 @@ export default async function DashboardAssessmentsPage() {
             </p>
           </div>
         </div>
-        <Link href="/dashboard/assessments/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            New Assessment
-          </Button>
-        </Link>
+        {canCreateAssessment && (
+          <Link href="/dashboard/assessments/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Assessment
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -175,12 +198,14 @@ export default async function DashboardAssessmentsPage() {
           <div className="text-center py-12">
             <ClipboardCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">No assessments found</p>
-            <Link href="/dashboard/assessments/new">
-              <Button className="mt-4">
-                <Plus className="mr-2 h-4 w-4" />
-                Create First Assessment
-              </Button>
-            </Link>
+            {canCreateAssessment && (
+              <Link href="/dashboard/assessments/new">
+                <Button className="mt-4">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create First Assessment
+                </Button>
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

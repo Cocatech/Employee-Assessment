@@ -10,21 +10,57 @@ import {
   Settings, 
   LogOut,
   ChevronLeft,
-  Menu
+  Menu,
+  UserCog
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { signOut, useSession } from 'next-auth/react';
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: any;
+  requirePermission?: boolean;
+}
+
+const allNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/employees', label: 'Employees', icon: Users },
+  { href: '/dashboard/employees', label: 'Employees', icon: Users, requirePermission: true },
   { href: '/dashboard/assessments', label: 'Assessments', icon: ClipboardCheck },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard/users', label: 'Users', icon: UserCog, requirePermission: true },
+  { href: '/dashboard/delegations', label: 'Delegations', icon: UserCog, requirePermission: true },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings, requirePermission: true },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { data: session } = useSession();
+  const [navItems, setNavItems] = useState<NavItem[]>(allNavItems);
+
+  useEffect(() => {
+    // Check permissions
+    const checkPermissions = async () => {
+      const currentUser = session?.user as any;
+      const role = currentUser?.role;
+      const userType = currentUser?.userType;
+      const isAdmin = userType === 'SYSTEM_ADMIN' || role === 'ADMIN';
+
+      if (isAdmin) {
+        // Admin sees all menu items
+        setNavItems(allNavItems);
+      } else {
+        // Regular users: hide Employees and Delegations menu
+        const filteredItems = allNavItems.filter(item => !item.requirePermission);
+        setNavItems(filteredItems);
+      }
+    };
+
+    if (session) {
+      checkPermissions();
+    }
+  }, [session]);
 
   return (
     <aside
@@ -80,6 +116,7 @@ export function Sidebar() {
         <Button
           variant="ghost"
           className={cn('w-full', collapsed ? 'justify-center' : 'justify-start')}
+          onClick={() => signOut({ callbackUrl: '/auth/signin' })}
         >
           <LogOut className="h-5 w-5" />
           {!collapsed && <span className="ml-3">Sign Out</span>}

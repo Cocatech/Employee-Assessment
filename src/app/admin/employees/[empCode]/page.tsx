@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import { 
   Edit, 
   Mail, 
@@ -19,9 +20,10 @@ import {
 export default async function EmployeeDetailPage({
   params,
 }: {
-  params: { empCode: string };
+  params: Promise<{ empCode: string }>;
 }) {
-  const result = await getEmployee(params.empCode);
+  const { empCode } = await params;
+  const result = await getEmployee(empCode);
 
   if (!result.success || !result.data) {
     notFound();
@@ -40,6 +42,22 @@ export default async function EmployeeDetailPage({
               Back
             </Button>
           </Link>
+          
+          {/* Profile Image */}
+          <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 flex items-center justify-center flex-shrink-0">
+            {employee.profileImage ? (
+              <Image
+                src={employee.profileImage}
+                alt={employee.empName_Eng}
+                width={64}
+                height={64}
+                className="object-cover w-full h-full"
+              />
+            ) : (
+              <User className="w-8 h-8 text-gray-400" />
+            )}
+          </div>
+          
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
               {employee.empName_Eng}

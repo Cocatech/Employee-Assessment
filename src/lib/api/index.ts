@@ -1,19 +1,7 @@
 /**
- * API Exports
- * Export all API adapters for easy access
+ * API index - Legacy file
+ * This file is kept for compatibility but direct Prisma usage is preferred
  */
 
-export {
-  employeeAdapter,
-  questionAdapter,
-  assessmentAdapter,
-  responseAdapter,
-  isUsingMockAPI,
-} from './data-adapter';
-
-export {
-  mockEmployeeClient,
-  mockAssessmentClient,
-  mockQuestionClient,
-  mockResponseClient,
-} from './mock-client';
+export { prisma } from '../db';
+export * from '../db/queries';

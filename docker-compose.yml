@@ -1,30 +1,57 @@
-version: '3.8'
-
 services:
-  trth-app:
+  # PostgreSQL 18 Database
+  postgres:
+    image: postgres:18-alpine
+    container_name: trth-postgres
+    user: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: trth_assessment
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d trth_assessment"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - trth-network
+    restart: unless-stopped
+
+  # Next.js Application (Development Mode with Hot Reload)
+  app:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: trth-employee-assessment
+      dockerfile: Dockerfile.dev
+      args:
+        NODE_ENV: development
+    container_name: trth-app
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - AZURE_AD_CLIENT_ID=${AZURE_AD_CLIENT_ID}
-      - AZURE_AD_CLIENT_SECRET=${AZURE_AD_CLIENT_SECRET}
-      - AZURE_AD_TENANT_ID=${AZURE_AD_TENANT_ID}
-      - SHAREPOINT_SITE_ID=${SHAREPOINT_SITE_ID}
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/trth_assessment?schema=public
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=development-secret-key-change-in-production
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
     networks:
       - trth-network
+    restart: on-failure:3
+    command: sh -c "sleep 5 && npx prisma generate && npx prisma db push && npm run dev"
+
+volumes:
+  postgres_data:
+    driver: local
 
 networks:
   trth-network:

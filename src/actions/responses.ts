@@ -1,76 +1,99 @@
 'use server';
 
+import { prisma, findResponsesByAssessment } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { AssessmentResponse } from '@/types/assessment';
-import { responseAdapter, isUsingMockAPI } from '@/lib/api/data-adapter';
-import { getListItems, createListItem, updateListItem, deleteListItem } from '@/lib/graph/sharepoint';
-
-const RESPONSES_LIST = 'TRTH_Responses';
 
 /**
- * Get all responses for an assessment (ใช้ adapter)
+ * Get all responses for an assessment
  */
 export async function getResponsesByAssessment(assessmentId: string): Promise<AssessmentResponse[]> {
   try {
-    if (isUsingMockAPI()) {
-      return await responseAdapter.getAll({ assessmentId });
-    }
+    const responses = await findResponsesByAssessment(assessmentId);
 
-    // SharePoint implementation
-    const items = await getListItems(RESPONSES_LIST);
-    return items
-      .filter(item => item.fields.AssessmentId === assessmentId)
-      .map((item) => ({
-        id: item.id,
-        assessmentId: item.fields.AssessmentId as string,
-        questionId: item.fields.QuestionId as string,
-        questionTitle: item.fields.QuestionTitle as string,
-        questionWeight: item.fields.QuestionWeight as number,
-        scoreSelf: item.fields.ScoreSelf as number | undefined,
-        scoreMgr: item.fields.ScoreMgr as number | undefined,
-        scoreAppr2: item.fields.ScoreAppr2 as number | undefined,
-        scoreGm: item.fields.ScoreGm as number | undefined,
-        commentSelf: item.fields.CommentSelf as string | undefined,
-        commentMgr: item.fields.CommentMgr as string | undefined,
-        commentAppr2: item.fields.CommentAppr2 as string | undefined,
-        commentGm: item.fields.CommentGm as string | undefined,
-        rating: item.fields.ScoreSelf as number || 0, // Legacy field
-        createdAt: item.createdDateTime,
-        updatedAt: item.lastModifiedDateTime,
-      }));
+    return responses.map((r) => ({
+      id: r.id,
+      assessmentId: r.assessmentId,
+      questionId: r.questionId,
+      questionTitle: r.question.questionTitle,
+      questionWeight: r.question.weight,
+      scoreSelf: r.scoreSelf || undefined,
+      scoreMgr: r.scoreMgr || undefined,
+      scoreAppr2: r.scoreAppr2 || undefined,
+      scoreGm: r.scoreGm || undefined,
+      commentSelf: r.commentSelf || undefined,
+      commentMgr: r.commentMgr || undefined,
+      commentAppr2: r.commentAppr2 || undefined,
+      commentGm: r.commentGm || undefined,
+      rating: r.scoreSelf || 0,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
   } catch (error) {
     console.error('Error fetching responses:', error);
-    // Return empty array instead of throwing to prevent page crash
     return [];
   }
 }
 
 /**
- * Create a new response (ใช้ adapter)
+ * Get single response by ID
+ */
+export async function getResponse(id: string) {
+  try {
+    const r = await prisma.assessmentResponse.findUnique({
+      where: { id },
+      include: { question: true },
+    });
+
+    if (!r) {
+      return { success: false, error: 'Response not found' };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: r.id,
+        assessmentId: r.assessmentId,
+        questionId: r.questionId,
+        questionTitle: r.question.questionTitle,
+        questionWeight: r.question.weight,
+        scoreSelf: r.scoreSelf || undefined,
+        scoreMgr: r.scoreMgr || undefined,
+        scoreAppr2: r.scoreAppr2 || undefined,
+        scoreGm: r.scoreGm || undefined,
+        commentSelf: r.commentSelf || undefined,
+        commentMgr: r.commentMgr || undefined,
+        commentAppr2: r.commentAppr2 || undefined,
+        commentGm: r.commentGm || undefined,
+        rating: r.scoreSelf || 0,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching response:', error);
+    return { success: false, error: 'Failed to fetch response' };
+  }
+}
+
+/**
+ * Create a new response
  */
 export async function createResponse(data: Omit<AssessmentResponse, 'id' | 'createdAt' | 'updatedAt'>) {
   try {
-    if (isUsingMockAPI()) {
-      await responseAdapter.create(data);
-      revalidatePath(`/dashboard/assessments/${data.assessmentId}`);
-      return { success: true };
-    }
-
-    // SharePoint implementation
-    await createListItem(RESPONSES_LIST, {
-      Title: `Response-${data.assessmentId}-${data.questionId}`,
-      AssessmentId: data.assessmentId,
-      QuestionId: data.questionId,
-      QuestionTitle: data.questionTitle,
-      QuestionWeight: data.questionWeight,
-      ScoreSelf: data.scoreSelf,
-      ScoreMgr: data.scoreMgr,
-      ScoreAppr2: data.scoreAppr2,
-      ScoreGm: data.scoreGm,
-      CommentSelf: data.commentSelf,
-      CommentMgr: data.commentMgr,
-      CommentAppr2: data.commentAppr2,
-      CommentGm: data.commentGm,
+    await prisma.assessmentResponse.create({
+      data: {
+        assessmentId: data.assessmentId,
+        questionId: data.questionId,
+        scoreSelf: data.scoreSelf || null,
+        scoreMgr: data.scoreMgr || null,
+        scoreAppr2: data.scoreAppr2 || null,
+        scoreGm: data.scoreGm || null,
+        commentSelf: data.commentSelf || null,
+        commentMgr: data.commentMgr || null,
+        commentAppr2: data.commentAppr2 || null,
+        commentGm: data.commentGm || null,
+      },
     });
     
     revalidatePath(`/dashboard/assessments/${data.assessmentId}`);
@@ -82,28 +105,24 @@ export async function createResponse(data: Omit<AssessmentResponse, 'id' | 'crea
 }
 
 /**
- * Update an existing response (ใช้ adapter)
+ * Update an existing response
  */
 export async function updateResponse(id: string, data: Partial<AssessmentResponse>) {
   try {
-    if (isUsingMockAPI()) {
-      await responseAdapter.update(Number(id), data);
-      if (data.assessmentId) {
-        revalidatePath(`/dashboard/assessments/${data.assessmentId}`);
-      }
-      return { success: true };
-    }
+    const updateData: any = {};
+    
+    if (data.scoreSelf !== undefined) updateData.scoreSelf = data.scoreSelf;
+    if (data.scoreMgr !== undefined) updateData.scoreMgr = data.scoreMgr;
+    if (data.scoreAppr2 !== undefined) updateData.scoreAppr2 = data.scoreAppr2;
+    if (data.scoreGm !== undefined) updateData.scoreGm = data.scoreGm;
+    if (data.commentSelf !== undefined) updateData.commentSelf = data.commentSelf || null;
+    if (data.commentMgr !== undefined) updateData.commentMgr = data.commentMgr || null;
+    if (data.commentAppr2 !== undefined) updateData.commentAppr2 = data.commentAppr2 || null;
+    if (data.commentGm !== undefined) updateData.commentGm = data.commentGm || null;
 
-    // SharePoint implementation
-    await updateListItem(RESPONSES_LIST, id, {
-      ...(data.scoreSelf !== undefined && { ScoreSelf: data.scoreSelf }),
-      ...(data.scoreMgr !== undefined && { ScoreMgr: data.scoreMgr }),
-      ...(data.scoreAppr2 !== undefined && { ScoreAppr2: data.scoreAppr2 }),
-      ...(data.scoreGm !== undefined && { ScoreGm: data.scoreGm }),
-      ...(data.commentSelf !== undefined && { CommentSelf: data.commentSelf }),
-      ...(data.commentMgr !== undefined && { CommentMgr: data.commentMgr }),
-      ...(data.commentAppr2 !== undefined && { CommentAppr2: data.commentAppr2 }),
-      ...(data.commentGm !== undefined && { CommentGm: data.commentGm }),
+    await prisma.assessmentResponse.update({
+      where: { id },
+      data: updateData,
     });
     
     if (data.assessmentId) {
@@ -117,21 +136,23 @@ export async function updateResponse(id: string, data: Partial<AssessmentRespons
 }
 
 /**
- * Delete a response (ใช้ adapter)
+ * Delete a response
  */
-export async function deleteResponse(id: string, assessmentId?: string) {
+export async function deleteResponse(id: string) {
   try {
-    if (isUsingMockAPI()) {
-      // responseAdapter doesn't have delete method, will add if needed
-      throw new Error('Delete response not implemented for mock API yet');
+    const response = await prisma.assessmentResponse.findUnique({
+      where: { id },
+    });
+
+    if (!response) {
+      return { success: false, error: 'Response not found' };
     }
 
-    // SharePoint implementation
-    await deleteListItem(RESPONSES_LIST, id);
+    await prisma.assessmentResponse.delete({
+      where: { id },
+    });
     
-    if (assessmentId) {
-      revalidatePath(`/dashboard/assessments/${assessmentId}`);
-    }
+    revalidatePath(`/dashboard/assessments/${response.assessmentId}`);
     return { success: true };
   } catch (error) {
     console.error('Error deleting response:', error);
@@ -140,30 +161,144 @@ export async function deleteResponse(id: string, assessmentId?: string) {
 }
 
 /**
- * Calculate total score from responses
+ * Bulk create or update responses
  */
-export async function calculateAssessmentScore(assessmentId: string): Promise<number> {
+export async function saveResponses(
+  assessmentId: string,
+  responses: Array<{
+    questionId: string;
+    scoreSelf?: number | null;
+    commentSelf?: string | null;
+    scoreMgr?: number | null;
+    commentMgr?: string | null;
+    scoreAppr2?: number | null;
+    commentAppr2?: string | null;
+    scoreGm?: number | null;
+    commentGm?: string | null;
+  }>
+) {
   try {
-    const responses = await getResponsesByAssessment(assessmentId);
+    // Use transaction for bulk operations
+    await prisma.$transaction(
+      responses.map((response) => {
+        return prisma.assessmentResponse.upsert({
+          where: {
+            assessmentId_questionId: {
+              assessmentId,
+              questionId: response.questionId,
+            },
+          },
+          create: {
+            assessmentId,
+            questionId: response.questionId,
+            scoreSelf: response.scoreSelf || null,
+            commentSelf: response.commentSelf || null,
+            scoreMgr: response.scoreMgr || null,
+            commentMgr: response.commentMgr || null,
+            scoreAppr2: response.scoreAppr2 || null,
+            commentAppr2: response.commentAppr2 || null,
+            scoreGm: response.scoreGm || null,
+            commentGm: response.commentGm || null,
+          },
+          update: {
+            scoreSelf: response.scoreSelf !== undefined ? response.scoreSelf : undefined,
+            commentSelf: response.commentSelf !== undefined ? response.commentSelf : undefined,
+            scoreMgr: response.scoreMgr !== undefined ? response.scoreMgr : undefined,
+            commentMgr: response.commentMgr !== undefined ? response.commentMgr : undefined,
+            scoreAppr2: response.scoreAppr2 !== undefined ? response.scoreAppr2 : undefined,
+            commentAppr2: response.commentAppr2 !== undefined ? response.commentAppr2 : undefined,
+            scoreGm: response.scoreGm !== undefined ? response.scoreGm : undefined,
+            commentGm: response.commentGm !== undefined ? response.commentGm : undefined,
+          },
+        });
+      })
+    );
+
+    // Calculate and update assessment total score
+    await updateAssessmentScore(assessmentId);
     
-    let totalWeightedScore = 0;
+    revalidatePath(`/dashboard/assessments/${assessmentId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving responses:', error);
+    return { success: false, error: 'Failed to save responses' };
+  }
+}
+
+/**
+ * Calculate and update assessment total score
+ */
+async function updateAssessmentScore(assessmentId: string) {
+  try {
+    const responses = await prisma.assessmentResponse.findMany({
+      where: { assessmentId },
+      include: { question: true },
+    });
+
+    let totalScore = 0;
     let totalWeight = 0;
 
-    responses.forEach(response => {
-      // Use the latest score available (priority: GM > Approver2 > Manager > Self)
-      const score = response.scoreGm ?? response.scoreAppr2 ?? response.scoreMgr ?? response.scoreSelf ?? 0;
-      const weight = response.questionWeight ?? 0;
-      
-      totalWeightedScore += score * weight;
+    responses.forEach((response) => {
+      const score = response.scoreSelf || 0;
+      const weight = response.question.weight;
+      totalScore += score * weight;
       totalWeight += weight;
     });
 
-    // Calculate weighted average
-    const finalScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
-    
-    return Math.round(finalScore * 100) / 100; // Round to 2 decimal places
+    const finalScore = totalWeight > 0 ? totalScore / totalWeight : 0;
+
+    await prisma.assessment.update({
+      where: { id: assessmentId },
+      data: { score: finalScore },
+    });
   } catch (error) {
-    console.error('Error calculating assessment score:', error);
-    return 0;
+    console.error('Error updating assessment score:', error);
+  }
+}
+
+/**
+ * Delete all responses for an assessment
+ */
+export async function deleteAssessmentResponses(assessmentId: string) {
+  try {
+    await prisma.assessmentResponse.deleteMany({
+      where: { assessmentId },
+    });
+    
+    revalidatePath(`/dashboard/assessments/${assessmentId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting assessment responses:', error);
+    return { success: false, error: 'Failed to delete responses' };
+  }
+}
+
+/**
+ * Get response statistics for an assessment
+ */
+export async function getResponseStats(assessmentId: string) {
+  try {
+    const responses = await prisma.assessmentResponse.findMany({
+      where: { assessmentId },
+      include: { question: true },
+    });
+
+    const totalQuestions = responses.length;
+    const completedResponses = responses.filter((r) => r.scoreSelf !== null).length;
+    const avgScore = responses.reduce((sum, r) => sum + (r.scoreSelf || 0), 0) / totalQuestions || 0;
+
+    return {
+      success: true,
+      data: {
+        totalQuestions,
+        completedResponses,
+        pendingResponses: totalQuestions - completedResponses,
+        completionRate: totalQuestions > 0 ? (completedResponses / totalQuestions) * 100 : 0,
+        avgScore,
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching response stats:', error);
+    return { success: false, error: 'Failed to fetch statistics' };
   }
 }

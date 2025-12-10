@@ -4,7 +4,7 @@ import { EmployeeFilters } from '@/components/employees/EmployeeFilters';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Link from 'next/link';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, ArrowLeft } from 'lucide-react';
 
 export const metadata = {
   title: 'Employees | TRTH Assessment',
@@ -14,12 +14,14 @@ export const metadata = {
 export default async function EmployeesPage({
   searchParams,
 }: {
-  searchParams: { 
+  searchParams: Promise<{ 
     search?: string; 
     group?: string; 
     type?: string;
-  };
+  }>;
 }) {
+  const params = await searchParams;
+  
   const [employees, groups] = await Promise.all([
     getEmployees(),
     getGroups(),
@@ -28,8 +30,8 @@ export default async function EmployeesPage({
   // Filter employees based on search params
   let filteredEmployees = employees;
 
-  if (searchParams.search) {
-    const query = searchParams.search.toLowerCase();
+  if (params.search) {
+    const query = params.search.toLowerCase();
     filteredEmployees = filteredEmployees.filter(
       (emp) =>
         emp.empCode.toLowerCase().includes(query) ||
@@ -39,15 +41,15 @@ export default async function EmployeesPage({
     );
   }
 
-  if (searchParams.group) {
+  if (params.group) {
     filteredEmployees = filteredEmployees.filter(
-      (emp) => emp.group === searchParams.group
+      (emp) => emp.group === params.group
     );
   }
 
-  if (searchParams.type) {
+  if (params.type) {
     filteredEmployees = filteredEmployees.filter(
-      (emp) => emp.employeeType === searchParams.type
+      (emp) => emp.employeeType === params.type
     );
   }
 
@@ -59,6 +61,16 @@ export default async function EmployeesPage({
 
   return (
     <div className="space-y-6">
+      {/* Back Button */}
+      <div>
+        <Link href="/dashboard">
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

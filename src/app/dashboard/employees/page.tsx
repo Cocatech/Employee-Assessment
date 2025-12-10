@@ -14,12 +14,14 @@ export const metadata = {
 export default async function DashboardEmployeesPage({
   searchParams,
 }: {
-  searchParams: { 
+  searchParams: Promise<{ 
     search?: string; 
     group?: string; 
     type?: string;
-  };
+  }>;
 }) {
+  const params = await searchParams;
+  
   const [employees, groups] = await Promise.all([
     getEmployees(),
     getGroups(),
@@ -28,8 +30,8 @@ export default async function DashboardEmployeesPage({
   // Filter employees based on search params
   let filteredEmployees = employees;
 
-  if (searchParams.search) {
-    const query = searchParams.search.toLowerCase();
+  if (params.search) {
+    const query = params.search.toLowerCase();
     filteredEmployees = filteredEmployees.filter(
       (emp) =>
         emp.empCode.toLowerCase().includes(query) ||
@@ -39,15 +41,15 @@ export default async function DashboardEmployeesPage({
     );
   }
 
-  if (searchParams.group) {
+  if (params.group) {
     filteredEmployees = filteredEmployees.filter((emp) =>
-      emp.group.includes(searchParams.group!)
+      emp.group.includes(params.group!)
     );
   }
 
-  if (searchParams.type) {
+  if (params.type) {
     filteredEmployees = filteredEmployees.filter(
-      (emp) => emp.employeeType === searchParams.type
+      (emp) => emp.employeeType === params.type
     );
   }
 
@@ -120,7 +122,7 @@ export default async function DashboardEmployeesPage({
           <h2 className="text-lg font-semibold">
             {filteredEmployees.length} {filteredEmployees.length === 1 ? 'Employee' : 'Employees'}
           </h2>
-          {(searchParams.search || searchParams.group || searchParams.type) && (
+          {(params.search || params.group || params.type) && (
             <p className="text-sm text-muted-foreground mt-1">
               Filtered from {employees.length} total employees
             </p>

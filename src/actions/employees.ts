@@ -1,47 +1,37 @@
 'use server';
 
-import { employeeAdapter, isUsingMockAPI } from '@/lib/api';
-import { 
-  getListItems, 
-  createListItem, 
-  updateListItem, 
-  deleteListItem,
-  getEmployeeByCode,
-  queryEmployees 
-} from '@/lib/graph/sharepoint';
+import { prisma, findEmployeeByCode, findActiveEmployees } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import type { Employee } from '@/types';
 
-const EMPLOYEES_LIST = 'TRTH_Master_Employee';
-
 /**
- * Get all employees (ใช้ adapter สำหรับ mock/SharePoint)
+ * Get all employees with optional filters
  */
-export async function getEmployees(): Promise<Employee[]> {
+export async function getEmployees(params?: {
+  group?: string;
+  employeeType?: string;
+  search?: string;
+}): Promise<Employee[]> {
   try {
-    // ใช้ adapter ที่จะสลับระหว่าง mock และ SharePoint อัตโนมัติ
-    if (isUsingMockAPI()) {
-      return await employeeAdapter.getAll();
-    }
+    const employees = await findActiveEmployees(params);
     
-    // SharePoint implementation (เดิม)
-    const items = await getListItems(EMPLOYEES_LIST);
-    return items.map((item) => ({
-      empCode: item.fields.Title as string,
-      empName_Eng: item.fields.EmpName_Eng as string,
-      empName_Thai: (item.fields.EmpName_Thai as string) || undefined,
-      email: (item.fields.Email as string) || null,
-      phoneNumber: (item.fields.PhoneNumber as string) || undefined,
-      position: item.fields.Position as string,
-      group: item.fields.Group as string,
-      team: (item.fields.Team as string) || undefined,
-      assessmentLevel: item.fields.AssessmentLevel as string,
-      employeeType: (item.fields.EmployeeType as 'Permanent' | 'Temporary') || 'Permanent',
-      approver1_ID: item.fields.Approver1_ID as string,
-      approver2_ID: (item.fields.Approver2_ID as string) || null,
-      gm_ID: item.fields.GM_ID as string,
-      joinDate: item.fields.JoinDate as string,
-      warningCount: (item.fields.WarningCount as number) || 0,
+    return employees.map((emp) => ({
+      empCode: emp.empCode,
+      empName_Eng: emp.empName_Eng,
+      empName_Thai: emp.empName_Thai || undefined,
+      email: emp.email || null,
+      phoneNumber: emp.phoneNumber || undefined,
+      position: emp.position,
+      group: emp.group,
+      team: emp.team || undefined,
+      assessmentLevel: emp.assessmentLevel,
+      employeeType: emp.employeeType as 'Permanent' | 'Temporary',
+      approver1_ID: emp.approver1_ID || '',
+      approver2_ID: emp.approver2_ID || null,
+      approver3_ID: emp.approver3_ID || null,
+      gm_ID: emp.gm_ID || '',
+      joinDate: emp.joinDate.toISOString(),
+      warningCount: emp.warningCount,
     }));
   } catch (error) {
     console.error('Error fetching employees:', error);
@@ -50,23 +40,36 @@ export async function getEmployees(): Promise<Employee[]> {
 }
 
 /**
- * Get single employee by code (ใช้ adapter)
+ * Get single employee by code
  */
 export async function getEmployee(empCode: string) {
   try {
-    if (isUsingMockAPI()) {
-      const employee = await employeeAdapter.getByEmpCode(empCode);
-      if (!employee) {
-        return { success: false, error: 'Employee not found' };
-      }
-      return { success: true, data: employee };
-    }
+    const emp = await findEmployeeByCode(empCode);
     
-    // SharePoint implementation (เดิม)
-    const employee = await getEmployeeByCode(empCode);
-    if (!employee) {
+    if (!emp) {
       return { success: false, error: 'Employee not found' };
     }
+    
+    const employee: any = {
+      empCode: emp.empCode,
+      empName_Eng: emp.empName_Eng,
+      empName_Thai: emp.empName_Thai || undefined,
+      email: emp.email || null,
+      phoneNumber: emp.phoneNumber || undefined,
+      profileImage: emp.profileImage || null,
+      position: emp.position,
+      group: emp.group,
+      team: emp.team || undefined,
+      assessmentLevel: emp.assessmentLevel,
+      employeeType: emp.employeeType as 'Permanent' | 'Temporary',
+      approver1_ID: emp.approver1_ID || '',
+      approver2_ID: emp.approver2_ID || null,
+      approver3_ID: emp.approver3_ID || null,
+      gm_ID: emp.gm_ID || '',
+      joinDate: emp.joinDate.toISOString(),
+      warningCount: emp.warningCount,
+    };
+    
     return { success: true, data: employee };
   } catch (error) {
     console.error('Error fetching employee:', error);
@@ -83,10 +86,7 @@ export async function searchEmployees(query: string) {
       return await getEmployees();
     }
 
-    // Search by name or code
-    const filter = `(substringof('${query}', fields/Title) or substringof('${query}', fields/EmpName_Eng) or substringof('${query}', fields/EmpName_Thai))`;
-    const results = await queryEmployees(filter);
-    return results;
+    return await getEmployees({ search: query });
   } catch (error) {
     console.error('Error searching employees:', error);
     return [];
@@ -98,8 +98,7 @@ export async function searchEmployees(query: string) {
  */
 export async function getEmployeesByGroup(group: string) {
   try {
-    const filter = `fields/Group eq '${group}'`;
-    return await queryEmployees(filter);
+    return await getEmployees({ group });
   } catch (error) {
     console.error('Error filtering employees:', error);
     return [];
@@ -111,8 +110,7 @@ export async function getEmployeesByGroup(group: string) {
  */
 export async function getEmployeesByType(type: 'Permanent' | 'Temporary') {
   try {
-    const filter = `fields/EmployeeType eq '${type}'`;
-    return await queryEmployees(filter);
+    return await getEmployees({ employeeType: type });
   } catch (error) {
     console.error('Error filtering employees by type:', error);
     return [];
@@ -120,34 +118,31 @@ export async function getEmployeesByType(type: 'Permanent' | 'Temporary') {
 }
 
 /**
- * Create a new employee (ใช้ adapter)
+ * Create a new employee
  */
-export async function createEmployee(data: Omit<Employee, 'empCode'> & { empCode: string }) {
+export async function createEmployee(data: Omit<Employee, 'empCode'> & { empCode: string; profileImage?: string | null }) {
   try {
-    if (isUsingMockAPI()) {
-      await employeeAdapter.create(data as Employee);
-      revalidatePath('/admin/employees');
-      revalidatePath('/dashboard/employees');
-      return { success: true, id: data.empCode };
-    }
-
-    // SharePoint implementation
-    const result = await createListItem(EMPLOYEES_LIST, {
-      Title: data.empCode,
-      EmpName_Eng: data.empName_Eng,
-      EmpName_Thai: data.empName_Thai || '',
-      Email: data.email || '',
-      PhoneNumber: data.phoneNumber || '',
-      Position: data.position,
-      Group: data.group,
-      Team: data.team || '',
-      AssessmentLevel: data.assessmentLevel,
-      EmployeeType: data.employeeType,
-      Approver1_ID: data.approver1_ID,
-      Approver2_ID: data.approver2_ID || '-',
-      GM_ID: data.gm_ID,
-      JoinDate: data.joinDate,
-      WarningCount: data.warningCount || 0,
+    const result = await prisma.employee.create({
+      data: {
+        empCode: data.empCode,
+        empName_Eng: data.empName_Eng,
+        empName_Thai: data.empName_Thai || null,
+        email: data.email || null,
+        phoneNumber: data.phoneNumber || null,
+        profileImage: data.profileImage || null,
+        position: data.position,
+        group: data.group,
+        team: data.team || null,
+        assessmentLevel: data.assessmentLevel,
+        employeeType: data.employeeType,
+        approver1_ID: data.approver1_ID || null,
+        approver2_ID: data.approver2_ID || null,
+        approver3_ID: data.approver3_ID || null,
+        gm_ID: data.gm_ID || null,
+        joinDate: new Date(data.joinDate),
+        warningCount: data.warningCount || 0,
+        isActive: true,
+      },
     });
     
     revalidatePath('/admin/employees');
@@ -160,44 +155,37 @@ export async function createEmployee(data: Omit<Employee, 'empCode'> & { empCode
 }
 
 /**
- * Update an existing employee (ใช้ adapter)
+ * Update an existing employee
  */
 export async function updateEmployee(empCode: string, data: Partial<Employee>) {
   try {
-    if (isUsingMockAPI()) {
-      await employeeAdapter.update(empCode, data);
-      revalidatePath('/admin/employees');
-      revalidatePath('/dashboard/employees');
-      return { success: true };
-    }
-
-    // SharePoint implementation
-    const employees = await queryEmployees(`fields/Title eq '${empCode}'`);
-    if (employees.length === 0) {
+    const employee = await findEmployeeByCode(empCode);
+    if (!employee) {
       return { success: false, error: 'Employee not found' };
     }
 
-    const items = await getListItems(EMPLOYEES_LIST);
-    const item = items.find(i => i.fields.Title === empCode);
-    if (!item) {
-      return { success: false, error: 'Employee not found' };
-    }
+    const updateData: any = {};
+    
+    if (data.empName_Eng !== undefined) updateData.empName_Eng = data.empName_Eng;
+    if (data.empName_Thai !== undefined) updateData.empName_Thai = data.empName_Thai || null;
+    if (data.email !== undefined) updateData.email = data.email || null;
+    if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber || null;
+    if ((data as any).profileImage !== undefined) updateData.profileImage = (data as any).profileImage || null;
+    if (data.position !== undefined) updateData.position = data.position;
+    if (data.group !== undefined) updateData.group = data.group;
+    if (data.team !== undefined) updateData.team = data.team || null;
+    if (data.assessmentLevel !== undefined) updateData.assessmentLevel = data.assessmentLevel;
+    if (data.employeeType !== undefined) updateData.employeeType = data.employeeType;
+    if (data.approver1_ID !== undefined) updateData.approver1_ID = data.approver1_ID || null;
+    if (data.approver2_ID !== undefined) updateData.approver2_ID = data.approver2_ID || null;
+    if (data.approver3_ID !== undefined) updateData.approver3_ID = data.approver3_ID || null;
+    if (data.gm_ID !== undefined) updateData.gm_ID = data.gm_ID || null;
+    if (data.joinDate !== undefined) updateData.joinDate = new Date(data.joinDate);
+    if (data.warningCount !== undefined) updateData.warningCount = data.warningCount;
 
-    await updateListItem(EMPLOYEES_LIST, item.id, {
-      ...(data.empName_Eng && { EmpName_Eng: data.empName_Eng }),
-      ...(data.empName_Thai !== undefined && { EmpName_Thai: data.empName_Thai }),
-      ...(data.email !== undefined && { Email: data.email }),
-      ...(data.phoneNumber !== undefined && { PhoneNumber: data.phoneNumber }),
-      ...(data.position && { Position: data.position }),
-      ...(data.group && { Group: data.group }),
-      ...(data.team !== undefined && { Team: data.team }),
-      ...(data.assessmentLevel && { AssessmentLevel: data.assessmentLevel }),
-      ...(data.employeeType && { EmployeeType: data.employeeType }),
-      ...(data.approver1_ID && { Approver1_ID: data.approver1_ID }),
-      ...(data.approver2_ID !== undefined && { Approver2_ID: data.approver2_ID || '-' }),
-      ...(data.gm_ID && { GM_ID: data.gm_ID }),
-      ...(data.joinDate && { JoinDate: data.joinDate }),
-      ...(data.warningCount !== undefined && { WarningCount: data.warningCount }),
+    await prisma.employee.update({
+      where: { empCode },
+      data: updateData,
     });
     
     revalidatePath('/admin/employees');
@@ -210,26 +198,21 @@ export async function updateEmployee(empCode: string, data: Partial<Employee>) {
 }
 
 /**
- * Delete an employee (ใช้ adapter)
+ * Delete an employee (soft delete)
  */
 export async function deleteEmployee(empCode: string) {
   try {
-    if (isUsingMockAPI()) {
-      await employeeAdapter.delete(empCode);
-      revalidatePath('/admin/employees');
-      revalidatePath('/dashboard/employees');
-      return { success: true };
-    }
-
-    // SharePoint implementation
-    const items = await getListItems(EMPLOYEES_LIST);
-    const item = items.find(i => i.fields.Title === empCode);
+    const employee = await findEmployeeByCode(empCode);
     
-    if (!item) {
+    if (!employee) {
       return { success: false, error: 'Employee not found' };
     }
 
-    await deleteListItem(EMPLOYEES_LIST, item.id);
+    // Soft delete by setting isActive to false
+    await prisma.employee.update({
+      where: { empCode },
+      data: { isActive: false },
+    });
     
     revalidatePath('/admin/employees');
     revalidatePath('/dashboard/employees');
@@ -260,14 +243,30 @@ export async function getGroups(): Promise<string[]> {
  */
 export async function getEmployeeStats() {
   try {
-    const employees = await getEmployees();
-    
+    const total = await prisma.employee.count({
+      where: { isActive: true },
+    });
+
+    const permanent = await prisma.employee.count({
+      where: { isActive: true, employeeType: 'Permanent' },
+    });
+
+    const temporary = await prisma.employee.count({
+      where: { isActive: true, employeeType: 'Temporary' },
+    });
+
+    const byGroup = await prisma.employee.groupBy({
+      by: ['group'],
+      where: { isActive: true },
+      _count: true,
+    });
+
     const stats = {
-      total: employees.length,
-      permanent: employees.filter(e => e.employeeType === 'Permanent').length,
-      temporary: employees.filter(e => e.employeeType === 'Temporary').length,
-      byGroup: employees.reduce((acc, emp) => {
-        acc[emp.group] = (acc[emp.group] || 0) + 1;
+      total,
+      permanent,
+      temporary,
+      byGroup: byGroup.reduce((acc, item) => {
+        acc[item.group] = item._count;
         return acc;
       }, {} as Record<string, number>),
     };

@@ -1,0 +1,267 @@
+// TRTH Employee Assessment System - Prisma Schema
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Employee Model
+// ============================================
+model Employee {
+  id              String   @id @default(cuid())
+  empCode         String   @unique
+  empName_Eng     String
+  empName_Thai    String?
+  email           String?
+  phoneNumber     String?
+  profileImage    String?  // URL or path to profile image
+  position        String
+  group           String   // e.g., "PRD,QA"
+  team            String?
+  assessmentLevel String   // Management, Supervise, Operate, Interpreter, General
+  employeeType    String   // Permanent, Temporary
+  approver1_ID    String?  // Manager
+  approver2_ID    String?  // Approver 2
+  approver3_ID    String?  // Approver 3
+  gm_ID           String?  // GM
+  joinDate        DateTime
+  warningCount    Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  assessments        Assessment[] @relation("EmployeeAssessments")
+  createdAssessments Assessment[] @relation("AssessmentCreator")
+  user               User?
+  
+  @@index([empCode])
+  @@index([group])
+  @@index([assessmentLevel])
+  @@index([isActive])
+  @@map("employees")
+}
+
+// ============================================
+// Assessment Question Model
+// ============================================
+model AssessmentQuestion {
+  id              String   @id @default(cuid())
+  questionTitle   String
+  description     String?
+  category        String   // Technical, Leadership, Communication, etc.
+  weight          Float    // Percentage weight in assessment
+  maxScore        Float    @default(5)
+  order           Int      // Display order
+  isActive        Boolean  @default(true)
+  applicableLevel String   // Management, Supervise, Operate, All, etc.
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  responses       AssessmentResponse[]
+
+  @@index([applicableLevel])
+  @@index([category])
+  @@index([isActive])
+  @@index([order])
+  @@map("assessment_questions")
+}
+
+// ============================================
+// Assessment Model
+// ============================================
+model Assessment {
+  id              String   @id @default(cuid())
+  title           String?
+  description     String?
+  assessmentType  String   // Annual, Probation, Mid-Year, etc.
+  status          String   // DRAFT, SUBMITTED_MGR, SUBMITTED_APPR2, SUBMITTED_APPR3, SUBMITTED_GM, COMPLETED, REJECTED
+  employeeId      String   // Foreign key to Employee.empCode
+  assessorId      String?  // Who created the assessment
+  periodStart     DateTime
+  periodEnd       DateTime
+  dueDate         DateTime
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  completedAt     DateTime?
+  score           Float?   // Current/interim score
+  finalScore      Float?   // Final approved score
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  employee        Employee @relation("EmployeeAssessments", fields: [employeeId], references: [empCode], onDelete: Cascade)
+  assessor        Employee? @relation("AssessmentCreator", fields: [assessorId], references: [empCode])
+  responses       AssessmentResponse[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([assessmentType])
+  @@map("assessments")
+}
+
+// ============================================
+// Assessment Response Model
+// ============================================
+model AssessmentResponse {
+  id              String   @id @default(cuid())
+  assessmentId    String
+  questionId      String
+  questionTitle   String
+  questionWeight  Float
+  
+  // Scores from different roles (0-5 scale)
+  scoreSelf       Float?
+  scoreMgr        Float?   // Manager score
+  scoreAppr2      Float?   // Approver 2 score
+  scoreAppr3      Float?   // Approver 3 score
+  scoreGm         Float?   // GM score
+  
+  // Comments from different roles
+  commentSelf     String?  @db.Text
+  commentMgr      String?  @db.Text
+  commentAppr2    String?  @db.Text
+  commentAppr3    String?  @db.Text
+  commentGm       String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  assessment      Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question        AssessmentQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([assessmentId, questionId])
+  @@index([assessmentId])
+  @@index([questionId])
+  @@map("assessment_responses")
+}
+
+// ============================================
+// User Model (for Authentication)
+// ============================================
+model User {
+  id            String    @id @default(cuid())
+  empCode       String?   @unique // Optional for system admin
+  email         String    @unique
+  name          String
+  role          String    @default("EMPLOYEE") // ADMIN, MANAGER, EMPLOYEE
+  userType      String    @default("EMPLOYEE") // SYSTEM_ADMIN, EMPLOYEE
+  passwordHash  String
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  employee      Employee? @relation(fields: [empCode], references: [empCode])
+
+  @@index([email])
+  @@index([empCode])
+  @@index([role])
+  @@map("users")
+}
+
+// ============================================
+// Delegation Model (Temporary Access Rights)
+// ============================================
+model Delegation {
+  id              String   @id @default(cuid())
+  delegatorId     String   // Admin who grants permission (empCode)
+  delegateeId     String   // Employee who receives permission (empCode)
+  permission      String   // MANAGE_EMPLOYEES, MANAGE_ASSESSMENTS, VIEW_REPORTS, etc.
+  startDate       DateTime
+  endDate         DateTime
+  reason          String?  @db.Text
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  revokedAt       DateTime?
+  revokedBy       String?
+
+  @@index([delegateeId])
+  @@index([permission])
+  @@index([isActive])
+  @@index([endDate])
+  @@map("delegations")
+}
+
+// ============================================
+// Audit Log Model
+// ============================================
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  userEmail   String
+  action      String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, APPROVE, REJECT, etc.
+  entity      String   // Assessment, Employee, Question, Response, etc.
+  entityId    String
+  changes     Json?    // Store before/after values
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// Master Data Models
+// ============================================
+model Position {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
+  @@index([sortOrder])
+  @@map("positions")
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
+  @@index([sortOrder])
+  @@map("groups")
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  groupCode   String?  // Link to Group
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([code])
+  @@index([groupCode])
+  @@index([sortOrder])
+  @@map("teams")
+}

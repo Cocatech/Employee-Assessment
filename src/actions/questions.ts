@@ -1,35 +1,44 @@
 'use server';
 
+import { prisma, findQuestionsByLevel, findQuestionsByCategory } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { AssessmentQuestion } from '@/types/assessment';
-import { questionAdapter, isUsingMockAPI } from '@/lib/api/data-adapter';
-import { getListItems, createListItem, updateListItem, deleteListItem } from '@/lib/graph/sharepoint';
-
-const QUESTIONS_LIST = 'TRTH_Questions';
 
 /**
- * Get all questions (ใช้ adapter)
+ * Get all questions with optional filters
  */
-export async function getQuestions(params?: { level?: string; category?: string }): Promise<AssessmentQuestion[]> {
+export async function getQuestions(params?: { 
+  level?: string; 
+  category?: string;
+  isActive?: boolean;
+}): Promise<AssessmentQuestion[]> {
   try {
-    if (isUsingMockAPI()) {
-      return await questionAdapter.getAll(params);
-    }
+    const where: any = {};
+    
+    if (params?.level) where.applicableLevel = params.level;
+    if (params?.category) where.category = params.category;
+    if (params?.isActive !== undefined) where.isActive = params.isActive;
 
-    // SharePoint implementation
-    const items = await getListItems(QUESTIONS_LIST);
-    return items.map((item) => ({
-      id: item.id,
-      questionTitle: item.fields.Title as string,
-      description: item.fields.Description as string,
-      category: item.fields.Category as AssessmentQuestion['category'],
-      weight: item.fields.Weight as number,
-      maxScore: 5, // Default
-      order: item.fields.Order as number,
-      isActive: item.fields.IsActive as boolean,
-      applicableLevel: item.fields.ApplicableLevel as AssessmentQuestion['applicableLevel'],
-      createdAt: item.createdDateTime,
-      updatedAt: item.lastModifiedDateTime,
+    const questions = await prisma.assessmentQuestion.findMany({
+      where,
+      orderBy: [
+        { category: 'asc' },
+        { order: 'asc' },
+      ],
+    });
+
+    return questions.map((q) => ({
+      id: q.id,
+      questionTitle: q.questionText,
+      description: q.description || '',
+      category: q.category as AssessmentQuestion['category'],
+      weight: q.weight,
+      maxScore: q.maxScore,
+      order: q.questionOrder,
+      isActive: q.isActive,
+      applicableLevel: q.assessmentLevel as AssessmentQuestion['applicableLevel'],
+      createdAt: q.createdAt.toISOString(),
+      updatedAt: q.updatedAt.toISOString(),
     }));
   } catch (error) {
     console.error('Error fetching questions:', error);
@@ -42,33 +51,21 @@ export async function getQuestions(params?: { level?: string; category?: string 
  */
 export async function getQuestionsByLevel(level: string): Promise<AssessmentQuestion[]> {
   try {
-    if (isUsingMockAPI()) {
-      const allQuestions = await questionAdapter.getAll();
-      return allQuestions.filter(q => 
-        q.applicableLevel === level || q.applicableLevel === 'All'
-      );
-    }
+    const questions = await findQuestionsByLevel(level);
 
-    // SharePoint implementation with filter
-    const items = await getListItems(QUESTIONS_LIST);
-    return items
-      .filter(item => 
-        item.fields.ApplicableLevel === level || 
-        item.fields.ApplicableLevel === 'All'
-      )
-      .map((item) => ({
-        id: item.id,
-        questionTitle: item.fields.Title as string,
-        description: item.fields.Description as string,
-        category: item.fields.Category as AssessmentQuestion['category'],
-        weight: item.fields.Weight as number,
-        maxScore: 5,
-        order: item.fields.Order as number,
-        isActive: item.fields.IsActive as boolean,
-        applicableLevel: item.fields.ApplicableLevel as AssessmentQuestion['applicableLevel'],
-        createdAt: item.createdDateTime,
-        updatedAt: item.lastModifiedDateTime,
-      }));
+    return questions.map((q) => ({
+      id: q.id,
+      questionTitle: q.questionTitle,
+      description: q.description || '',
+      category: q.category as AssessmentQuestion['category'],
+      weight: q.weight,
+      maxScore: q.maxScore,
+      order: q.order,
+      isActive: q.isActive,
+      applicableLevel: q.applicableLevel as AssessmentQuestion['applicableLevel'],
+      createdAt: q.createdAt.toISOString(),
+      updatedAt: q.updatedAt.toISOString(),
+    }));
   } catch (error) {
     console.error('Error fetching questions by level:', error);
     throw new Error('Failed to fetch questions by level');
@@ -76,31 +73,87 @@ export async function getQuestionsByLevel(level: string): Promise<AssessmentQues
 }
 
 /**
- * Create a new question (ใช้ adapter)
+ * Get questions by category
+ */
+export async function getQuestionsByCategory(category: string): Promise<AssessmentQuestion[]> {
+  try {
+    const questions = await findQuestionsByCategory(category);
+
+    return questions.map((q) => ({
+      id: q.id,
+      questionTitle: q.questionTitle,
+      description: q.description || '',
+      category: q.category as AssessmentQuestion['category'],
+      weight: q.weight,
+      maxScore: q.maxScore,
+      order: q.order,
+      isActive: q.isActive,
+      applicableLevel: q.applicableLevel as AssessmentQuestion['applicableLevel'],
+      createdAt: q.createdAt.toISOString(),
+      updatedAt: q.updatedAt.toISOString(),
+    }));
+  } catch (error) {
+    console.error('Error fetching questions by category:', error);
+    return [];
+  }
+}
+
+/**
+ * Get single question by ID
+ */
+export async function getQuestion(id: string) {
+  try {
+    const q = await prisma.assessmentQuestion.findUnique({
+      where: { id },
+    });
+
+    if (!q) {
+      return { success: false, error: 'Question not found' };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: q.id,
+        questionTitle: q.questionTitle,
+        description: q.description || '',
+        category: q.category,
+        weight: q.weight,
+        maxScore: q.maxScore,
+        order: q.order,
+        isActive: q.isActive,
+        applicableLevel: q.applicableLevel,
+        createdAt: q.createdAt.toISOString(),
+        updatedAt: q.updatedAt.toISOString(),
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching question:', error);
+    return { success: false, error: 'Failed to fetch question' };
+  }
+}
+
+/**
+ * Create a new question
  */
 export async function createQuestion(data: Omit<AssessmentQuestion, 'id' | 'createdAt' | 'updatedAt'>) {
   try {
-    if (isUsingMockAPI()) {
-      await questionAdapter.create(data);
-      revalidatePath('/admin/questions');
-      revalidatePath('/dashboard/questions');
-      return { success: true };
-    }
-
-    // SharePoint implementation
-    await createListItem(QUESTIONS_LIST, {
-      Title: data.questionTitle,
-      Description: data.description,
-      Category: data.category,
-      Weight: data.weight,
-      Order: data.order,
-      IsActive: data.isActive,
-      ApplicableLevel: data.applicableLevel,
+    const result = await prisma.assessmentQuestion.create({
+      data: {
+        questionTitle: data.questionTitle,
+        description: data.description || null,
+        category: data.category,
+        applicableLevel: data.applicableLevel,
+        weight: data.weight,
+        maxScore: data.maxScore || 5,
+        order: data.order,
+        isActive: data.isActive !== false,
+      },
     });
     
     revalidatePath('/admin/questions');
     revalidatePath('/dashboard/questions');
-    return { success: true };
+    return { success: true, id: result.id };
   } catch (error) {
     console.error('Error creating question:', error);
     return { success: false, error: 'Failed to create question' };
@@ -108,26 +161,24 @@ export async function createQuestion(data: Omit<AssessmentQuestion, 'id' | 'crea
 }
 
 /**
- * Update an existing question (ใช้ adapter)
+ * Update an existing question
  */
 export async function updateQuestion(id: string, data: Partial<AssessmentQuestion>) {
   try {
-    if (isUsingMockAPI()) {
-      await questionAdapter.update(Number(id), data);
-      revalidatePath('/admin/questions');
-      revalidatePath('/dashboard/questions');
-      return { success: true };
-    }
+    const updateData: any = {};
+    
+    if (data.questionTitle !== undefined) updateData.questionTitle = data.questionTitle;
+    if (data.description !== undefined) updateData.description = data.description || null;
+    if (data.category !== undefined) updateData.category = data.category;
+    if (data.applicableLevel !== undefined) updateData.applicableLevel = data.applicableLevel;
+    if (data.weight !== undefined) updateData.weight = data.weight;
+    if (data.maxScore !== undefined) updateData.maxScore = data.maxScore;
+    if (data.order !== undefined) updateData.order = data.order;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
-    // SharePoint implementation
-    await updateListItem(QUESTIONS_LIST, id, {
-      ...(data.questionTitle && { Title: data.questionTitle }),
-      ...(data.description !== undefined && { Description: data.description }),
-      ...(data.category && { Category: data.category }),
-      ...(data.weight !== undefined && { Weight: data.weight }),
-      ...(data.order !== undefined && { Order: data.order }),
-      ...(data.isActive !== undefined && { IsActive: data.isActive }),
-      ...(data.applicableLevel && { ApplicableLevel: data.applicableLevel }),
+    await prisma.assessmentQuestion.update({
+      where: { id },
+      data: updateData,
     });
     
     revalidatePath('/admin/questions');
@@ -140,19 +191,13 @@ export async function updateQuestion(id: string, data: Partial<AssessmentQuestio
 }
 
 /**
- * Delete a question (ใช้ adapter)
+ * Delete a question
  */
 export async function deleteQuestion(id: string) {
   try {
-    if (isUsingMockAPI()) {
-      await questionAdapter.delete(Number(id));
-      revalidatePath('/admin/questions');
-      revalidatePath('/dashboard/questions');
-      return { success: true };
-    }
-
-    // SharePoint implementation
-    await deleteListItem(QUESTIONS_LIST, id);
+    await prisma.assessmentQuestion.delete({
+      where: { id },
+    });
     
     revalidatePath('/admin/questions');
     revalidatePath('/dashboard/questions');
@@ -160,5 +205,74 @@ export async function deleteQuestion(id: string) {
   } catch (error) {
     console.error('Error deleting question:', error);
     return { success: false, error: 'Failed to delete question' };
+  }
+}
+
+/**
+ * Toggle question active status
+ */
+export async function toggleQuestionStatus(id: string) {
+  try {
+    const question = await prisma.assessmentQuestion.findUnique({
+      where: { id },
+    });
+
+    if (!question) {
+      return { success: false, error: 'Question not found' };
+    }
+
+    await prisma.assessmentQuestion.update({
+      where: { id },
+      data: { isActive: !question.isActive },
+    });
+    
+    revalidatePath('/admin/questions');
+    revalidatePath('/dashboard/questions');
+    return { success: true };
+  } catch (error) {
+    console.error('Error toggling question status:', error);
+    return { success: false, error: 'Failed to toggle question status' };
+  }
+}
+
+/**
+ * Get question statistics
+ */
+export async function getQuestionStats() {
+  try {
+    const total = await prisma.assessmentQuestion.count();
+    const active = await prisma.assessmentQuestion.count({
+      where: { isActive: true },
+    });
+
+    const byCategory = await prisma.assessmentQuestion.groupBy({
+      by: ['category'],
+      _count: true,
+    });
+
+    const byLevel = await prisma.assessmentQuestion.groupBy({
+      by: ['applicableLevel'],
+      _count: true,
+    });
+
+    return {
+      success: true,
+      data: {
+        total,
+        active,
+        inactive: total - active,
+        byCategory: byCategory.reduce((acc, item) => {
+          acc[item.category] = item._count;
+          return acc;
+        }, {} as Record<string, number>),
+        byLevel: byLevel.reduce((acc, item) => {
+          acc[item.applicableLevel] = item._count;
+          return acc;
+        }, {} as Record<string, number>),
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching question stats:', error);
+    return { success: false, error: 'Failed to fetch statistics' };
   }
 }

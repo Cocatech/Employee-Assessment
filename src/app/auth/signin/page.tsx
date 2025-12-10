@@ -71,7 +71,7 @@ export default function SignInPage() {
                 : 'text-gray-600 hover:text-gray-900'
             )}
           >
-            Permanent Staff
+            Microsoft Account
           </button>
           <button
             type="button"
@@ -83,7 +83,7 @@ export default function SignInPage() {
                 : 'text-gray-600 hover:text-gray-900'
             )}
           >
-            Temporary Staff
+            Email / Employee Code
           </button>
         </div>
 
@@ -98,7 +98,7 @@ export default function SignInPage() {
         {authMode === 'microsoft' && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 text-center">
-              Sign in with your @trth.co.th email account
+              Sign in with your Microsoft account
             </p>
             <Button
               onClick={handleMicrosoftSignIn}
@@ -146,12 +146,12 @@ export default function SignInPage() {
           <form onSubmit={handleCredentialsSignIn} className="space-y-4">
             <div className="space-y-2">
               <label htmlFor="empCode" className="text-sm font-medium text-gray-700">
-                Employee Code
+                Email or Employee Code
               </label>
               <Input
                 id="empCode"
                 type="text"
-                placeholder="e.g., EMP001"
+                placeholder="admin@trth.com or EMP001"
                 value={empCode}
                 onChange={(e) => setEmpCode(e.target.value)}
                 required
@@ -167,17 +167,13 @@ export default function SignInPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="DDMMYYYY (Join Date)"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
-                maxLength={8}
                 className="w-full"
               />
-              <p className="text-xs text-gray-500">
-                Enter your join date in DDMMYYYY format (e.g., 01012024)
-              </p>
             </div>
 
             <Button
@@ -194,18 +190,7 @@ export default function SignInPage() {
         {/* Help Text */}
         <div className="pt-4 border-t border-gray-200">
           <p className="text-xs text-gray-500 text-center">
-            {authMode === 'microsoft' ? (
-              <>
-                Temporary staff? Switch to <strong>Temporary Staff</strong> tab above
-              </>
-            ) : (
-              <>
-                Permanent staff? Switch to <strong>Permanent Staff</strong> tab above
-              </>
-            )}
-          </p>
-          <p className="text-xs text-gray-500 text-center mt-2">
-            Need help? Contact HR at <a href="mailto:hr@trth.co.th" className="text-blue-600 hover:underline">hr@trth.co.th</a>
+            Need help? Contact IT Support at <a href="mailto:it@trth.co.th" className="text-blue-600 hover:underline">it@trth.co.th</a>
           </p>
         </div>
       </Card>

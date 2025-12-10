@@ -8,9 +8,10 @@ import { ArrowLeft, Mail, Phone, Briefcase, Calendar, Users, Shield, Edit } from
 export default async function EmployeeDetailPage({
   params,
 }: {
-  params: { empCode: string };
+  params: Promise<{ empCode: string }>;
 }) {
-  const result = await getEmployee(params.empCode);
+  const { empCode } = await params;
+  const result = await getEmployee(empCode);
 
   if (!result.success || !result.data) {
     notFound();
@@ -36,7 +37,7 @@ export default async function EmployeeDetailPage({
             )}
           </div>
         </div>
-        <Link href={`/dashboard/employees/${employee.empCode}/edit`}>
+        <Link href={`/admin/employees/${employee.empCode}/edit`}>
           <Button>
             <Edit className="mr-2 h-4 w-4" />
             Edit

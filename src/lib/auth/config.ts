@@ -40,13 +40,13 @@ export const authConfig: NextAuthConfig = {
       })
     ] : []),
     
-    // Provider 2: Credentials for temporary staff (and development testing)
+    // Provider 2: Credentials for User authentication
     Credentials({
       id: 'credentials',
-      name: 'Employee Code',
+      name: 'Credentials',
       credentials: {
-        username: { label: 'Employee Code', type: 'text' },
-        password: { label: 'Password (DDMMYYYY)', type: 'password' },
+        username: { label: 'Email or Employee Code', type: 'text' },
+        password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
@@ -54,68 +54,47 @@ export const authConfig: NextAuthConfig = {
         }
 
         try {
-          // Development mode: use mock data
-          if (process.env.USE_MOCK_API === 'true') {
-            const { employeeAdapter } = await import('@/lib/api');
-            const employee = await employeeAdapter.getByEmpCode(credentials.username as string);
-            
-            if (!employee) {
-              console.error('Employee not found:', credentials.username);
-              return null;
-            }
-
-            // In dev mode, accept password as joinDate (DDMMYYYY) or simple password
-            const isValidPassword = 
-              validateTempStaffPassword(employee.joinDate, credentials.password as string) ||
-              credentials.password === 'password' || // Simple dev password
-              credentials.password === employee.empCode; // Or use empCode as password
-
-            if (!isValidPassword) {
-              console.error('Invalid password for employee:', credentials.username);
-              return null;
-            }
-
-            // Return user object
-            return {
-              id: employee.empCode,
-              name: employee.empName_Eng,
-              email: employee.email || `${employee.empCode}@trth.co.th`,
-              empCode: employee.empCode,
-              role: employee.employeeType === 'Temporary' ? 'TEMP_USER' : 'USER',
-              group: employee.group,
-              position: employee.position,
-            };
-          }
-
-          // Production mode: use SharePoint
-          const { getEmployeeByCode } = await import('@/lib/graph/sharepoint');
-          const employee = await getEmployeeByCode(credentials.username as string);
+          // Import bcrypt and prisma
+          const bcrypt = await import('bcryptjs');
+          const { prisma } = await import('@/lib/db');
           
-          if (!employee) {
-            console.error('Employee not found:', credentials.username);
+          // Try to find user by email or empCode
+          const user = await prisma.user.findFirst({
+            where: {
+              OR: [
+                { email: credentials.username as string },
+                { empCode: credentials.username as string },
+              ],
+            },
+            include: {
+              employee: true,
+            },
+          });
+          
+          if (!user || !user.isActive) {
+            console.error('User not found or inactive:', credentials.username);
             return null;
           }
 
-          // Validate password (JoinDate in DDMMYYYY format)
-          const isValidPassword = validateTempStaffPassword(
-            employee.joinDate,
-            credentials.password as string
+          // Validate password using bcrypt
+          const isValidPassword = await bcrypt.compare(
+            credentials.password as string,
+            user.passwordHash
           );
 
           if (!isValidPassword) {
-            console.error('Invalid password for employee:', credentials.username);
+            console.error('Invalid password for user:', credentials.username);
             return null;
           }
 
-          // Return user object for temporary staff
+          // Return user object
           return {
-            id: employee.empCode,
-            name: employee.empName_Eng,
-            email: employee.email || `${employee.empCode}@temp.trth.co.th`,
-            empCode: employee.empCode,
-            role: 'TEMP_USER',
-            group: employee.group,
-            position: employee.position,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            empCode: user.empCode || undefined,
+            role: user.role,
+            userType: user.userType,
           };
         } catch (error) {
           console.error('Error during credentials authentication:', error);
@@ -143,9 +122,8 @@ export const authConfig: NextAuthConfig = {
         token.accessToken = account.access_token;
         token.id = user.id;
         token.empCode = (user as any).empCode;
-        token.role = (user as any).role || 'PERMANENT';
-        token.department = (user as any).department;
-        token.position = (user as any).position;
+        token.role = (user as any).role || 'EMPLOYEE';
+        token.userType = (user as any).userType || 'EMPLOYEE';
       }
       
       // For Azure AD, use profile.sub as ID
@@ -160,8 +138,7 @@ export const authConfig: NextAuthConfig = {
         session.user.id = token.id as string;
         (session.user as any).empCode = token.empCode;
         (session.user as any).role = token.role;
-        (session.user as any).department = token.department;
-        (session.user as any).position = token.position;
+        (session.user as any).userType = token.userType;
       }
       return session;
     },
@@ -172,6 +149,8 @@ export const authConfig: NextAuthConfig = {
   },
   session: {
     strategy: 'jwt',
+    maxAge: 8 * 60 * 60, // 8 hours
+    updateAge: 60 * 60, // Update session every 1 hour
   },
   trustHost: true,
 };
